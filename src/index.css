@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-accent: #3A8D8F;
+  --color-primary: #0A192F;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-[#F8F9FA] text-[#1A1A1A] antialiased;
+    overflow-y: scroll; /* Ensure scrollbar is always visible to prevent layout shift */
+  }
+}
+
+/* Custom scrollbar for that professional look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F1F1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0A192F;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #112240;
+}
+
+/* Square focus rings */
+input:focus, select:focus, textarea:focus {
+  @apply ring-offset-0 ring-2 ring-[#0A192F]/20 border-[#0A192F];
+  outline: none !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}

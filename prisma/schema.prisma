@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("OPERATOR") // ADMIN, OPERATOR
+  clientId  Int?     // Optional: Link user to a specific client
+  client    Client?  @relation(fields: [clientId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  slug        String      @unique // For "folder" like organization
+  color       String      @default("#0A192F") // Client specific color
+  logoUrl     String?
+  equipments  Equipment[]
+  users       User[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Equipment {
+  id                     Int                  @id @default(autoincrement())
+  publicId               String               @unique // NanoID for public URL
+  codigo                 String               @unique // e.g., AC-001
+  tipo                   String               // Chiller, Duto, Split
+  local                  String
+  andar                  String
+  status                 String               @default("OPERACIONAL") // OPERACIONAL, MANUTENCAO, CRITICO
+  dataInstalacao         DateTime?
+  periodicidadeManutencao Int?                 // In days
+  clientId               Int?                 // Optional for migration, can be required later
+  client                 Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  attributes             EquipmentAttribute[]
+  maintenances           Maintenance[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+}
+
+model EquipmentAttribute {
+  id          Int       @id @default(autoincrement())
+  equipmentId Int
+  key         String    // e.g., Fabricante
+  value       String    // e.g., LG
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model Maintenance {
+  id          Int       @id @default(autoincrement())
+  equipmentId Int
+  data        DateTime  @default(now())
+  descricao   String
+  responsavel String
+  observacao  String?
+  arquivoUrl  String?   // PDF or Image link
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model PrintSettings {
+  id                Int      @id @default(1)
+  logoUrl           String?
+  reportHeader      String?
+  reportFooter      String?
+  reportPrimaryColor String   @default("#0A192F")
+  labelWidth        Int      @default(100) // mm
+  labelHeight       Int      @default(60)  // mm
+  labelShowCode     Boolean  @default(true)
+  labelShowLocal    Boolean  @default(true)
+  labelShowType     Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+}
