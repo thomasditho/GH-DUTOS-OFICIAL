@@ -364,7 +364,33 @@ async function startServer() {
       const workbook = XLSX.readFile(req.file.path);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      // Intelligent Header Discovery
+      let headerRowIndex = 0;
+      const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period'];
+      
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const row = rows[i];
+        if (!row || !Array.isArray(row)) continue;
+        const matches = row.filter(cell => 
+          cell && typeof cell === 'string' && 
+          keywords.some(kw => cell.toLowerCase().includes(kw))
+        ).length;
+        if (matches >= 2) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      const headers = rows[headerRowIndex];
+      const data = rows.slice(headerRowIndex + 1).map(row => {
+        const obj: any = {};
+        headers.forEach((h, i) => {
+          if (h) obj[h] = row[i];
+        });
+        return obj;
+      });
 
       const results = {
         success: 0,

@@ -42,17 +42,39 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      if (data.length > 0) {
-        setHeaders(data[0] as string[]);
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+      
+      if (rows.length > 0) {
+        // Intelligent Header Discovery
+        let headerRowIndex = 0;
+        const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period'];
+        
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+          const row = rows[i];
+          if (!row || !Array.isArray(row)) continue;
+          
+          const matches = row.filter(cell => 
+            cell && typeof cell === 'string' && 
+            keywords.some(kw => cell.toLowerCase().includes(kw))
+          ).length;
+
+          if (matches >= 2) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        const detectedHeaders = rows[headerRowIndex].map(h => String(h || '').trim()).filter(Boolean);
+        setHeaders(detectedHeaders);
+
         // Auto-mapping attempt
-        const h = (data[0] as string[]).map(s => s.toLowerCase());
+        const h = detectedHeaders.map(s => s.toLowerCase());
         setMapping({
-          codigo: (data[0] as string[]).find((_, i) => h[i].includes('tag') || h[i].includes('cod') || h[i].includes('identif')) || '',
-          tipo: (data[0] as string[]).find((_, i) => h[i].includes('tipo') || h[i].includes('equip')) || '',
-          local: (data[0] as string[]).find((_, i) => h[i].includes('local') || h[i].includes('setor')) || '',
-          andar: (data[0] as string[]).find((_, i) => h[i].includes('andar') || h[i].includes('pav')) || '',
-          periodicidade: (data[0] as string[]).find((_, i) => h[i].includes('period') || h[i].includes('dias') || h[i].includes('frequ')) || ''
+          codigo: detectedHeaders.find((_, i) => h[i].includes('tag') || h[i].includes('cod') || h[i].includes('identif')) || '',
+          tipo: detectedHeaders.find((_, i) => h[i].includes('tipo') || h[i].includes('equip')) || '',
+          local: detectedHeaders.find((_, i) => h[i].includes('local') || h[i].includes('setor')) || '',
+          andar: detectedHeaders.find((_, i) => h[i].includes('andar') || h[i].includes('pav')) || '',
+          periodicidade: detectedHeaders.find((_, i) => h[i].includes('period') || h[i].includes('dias') || h[i].includes('frequ')) || ''
         });
       }
     };
