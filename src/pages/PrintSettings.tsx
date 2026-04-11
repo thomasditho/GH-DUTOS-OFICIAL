@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Settings, FileText, Printer, Save, Upload, Eye, Palette, Layout as LayoutIcon } from 'lucide-react';
 import { fetchApi } from '../services/api';
 import { toast } from 'sonner';
+import { QRCodeCanvas } from 'qrcode.react';
+import { generateBatchLabels, generateTestReport } from '../lib/printUtils';
 
 const PrintSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'report' | 'label'>('report');
@@ -14,15 +16,40 @@ const PrintSettings: React.FC = () => {
     labelHeight: 40,
     labelShowCode: true,
     labelShowLocal: true,
-    labelShowType: true
+    labelShowType: true,
+    labelPhone: '(11) 3208-1276',
+    labelTemplate: 'modern'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const handleDownloadTestReport = () => {
+    generateTestReport(settings);
+    toast.success('Relatório de teste gerado!');
+  };
+
+  const handleDownloadTestLabel = () => {
+    const testItem = {
+      codigo: 'AC-001',
+      tipo: 'CHILLER CARRIER',
+      local: 'SALA TÉCNICA',
+      andar: '2º ANDAR',
+      publicId: 'test-id'
+    };
+    generateBatchLabels([testItem], settings);
+    toast.success('Etiqueta de teste gerada!');
+  };
+
   useEffect(() => {
     fetchApi('/api/settings/print')
-      .then(setSettings)
-      .finally(() => setLoading(false));
+      .then(data => {
+        setSettings({
+          ...data,
+          labelPhone: data.labelPhone || ''
+        });
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
@@ -150,6 +177,15 @@ const PrintSettings: React.FC = () => {
 
                 <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Cores e Estilo</h3>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleDownloadTestReport}
+                      className="flex-1 px-6 py-4 bg-white border border-[#0A192F] text-[#0A192F] font-black text-[10px] uppercase tracking-widest hover:bg-[#F9FAFB] transition-all flex items-center justify-center gap-2"
+                    >
+                      <FileText size={14} />
+                      Baixar Relatório de Teste
+                    </button>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-widest mb-2">Cor Principal (Títulos e Tabelas)</label>
                     <div className="flex items-center gap-4">
@@ -172,10 +208,41 @@ const PrintSettings: React.FC = () => {
             ) : (
               <>
                 <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Modelo da Etiqueta</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setSettings({ ...settings, labelTemplate: 'modern' })}
+                      className={`p-4 border-2 transition-all text-left ${settings.labelTemplate === 'modern' ? 'border-[#0A192F] bg-[#F9FAFB]' : 'border-[#E5E7EB] hover:border-[#9CA3AF]'}`}
+                    >
+                      <div className="w-full aspect-video bg-[#0A192F] mb-3 flex flex-col">
+                        <div className="h-1 bg-[#10B981] w-full" />
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="w-8 h-8 bg-white/20 rounded-sm" />
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Modelo Moderno</p>
+                      <p className="text-[9px] text-[#6B7280] mt-1">Layout GH DUTOS atualizado</p>
+                    </button>
+                    <button
+                      onClick={() => setSettings({ ...settings, labelTemplate: 'classic' })}
+                      className={`p-4 border-2 transition-all text-left ${settings.labelTemplate === 'classic' ? 'border-[#0A192F] bg-[#F9FAFB]' : 'border-[#E5E7EB] hover:border-[#9CA3AF]'}`}
+                    >
+                      <div className="w-full aspect-video bg-white mb-3 flex flex-col items-center justify-center border border-[#E5E7EB]">
+                        <div className="w-6 h-6 border border-[#0A192F] mb-1" />
+                        <div className="w-10 h-1 bg-[#0A192F] mb-1" />
+                        <div className="w-6 h-6 border border-[#0A192F]" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Modelo Clássico</p>
+                      <p className="text-[9px] text-[#6B7280] mt-1">Layout original (Excel)</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Dimensões da Etiqueta</h3>
-                  <div className="p-4 bg-amber-50 border-l-4 border-amber-500 mb-4">
-                    <p className="text-[10px] text-amber-800 font-bold uppercase tracking-widest">Padrão GH DUTOS:</p>
-                    <p className="text-[11px] text-amber-700 mt-1">O sistema está otimizado para etiquetas de 80x40mm em um grid de 3x5 por página A4 na impressão em lote.</p>
+                  <div className="p-4 bg-emerald-50 border-l-4 border-emerald-500 mb-4">
+                    <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-widest">Padrão GH DUTOS:</p>
+                    <p className="text-[11px] text-emerald-700 mt-1">O sistema está otimizado para etiquetas de 80x40mm em um grid de 3x5 por página A4 na impressão em lote.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -196,6 +263,29 @@ const PrintSettings: React.FC = () => {
                         className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E7EB] text-sm font-medium focus:border-[#0A192F] outline-none transition-all"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Ações e Contato</h3>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleDownloadTestLabel}
+                      className="flex-1 px-6 py-4 bg-white border border-[#0A192F] text-[#0A192F] font-black text-[10px] uppercase tracking-widest hover:bg-[#F9FAFB] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Printer size={14} />
+                      Baixar Etiqueta de Teste
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-widest mb-2">Telefone de Contato na Etiqueta</label>
+                    <input
+                      type="text"
+                      value={settings.labelPhone}
+                      onChange={(e) => setSettings({ ...settings, labelPhone: e.target.value })}
+                      placeholder="(00) 0000-0000"
+                      className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E7EB] text-sm font-medium focus:border-[#0A192F] outline-none transition-all"
+                    />
                   </div>
                 </div>
 
@@ -254,7 +344,7 @@ const PrintSettings: React.FC = () => {
             {activeTab === 'report' ? (
               <div className="w-full max-w-md bg-white shadow-2xl border border-[#E5E7EB] aspect-[1/1.4] p-8 space-y-6 overflow-hidden">
                 <div className="flex justify-between items-start border-b-2 pb-4" style={{ borderColor: settings.reportPrimaryColor }}>
-                  <div className="w-24 h-12 bg-[#F9FAFB] flex items-center justify-center overflow-hidden">
+                  <div className="w-32 h-16 bg-white flex items-center justify-center overflow-hidden">
                     {settings.logoUrl ? (
                       <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
                     ) : (
@@ -282,25 +372,106 @@ const PrintSettings: React.FC = () => {
               </div>
             ) : (
               <div 
-                className="bg-white shadow-2xl border-2 border-[#0A192F] p-6 flex flex-col items-center justify-center space-y-4"
+                className="bg-white shadow-2xl border border-[#E5E7EB] flex flex-col overflow-hidden relative"
                 style={{ 
-                  width: `${settings.labelWidth * 3}px`, 
-                  height: `${settings.labelHeight * 3}px`,
+                  width: `${settings.labelWidth * 4}px`, 
+                  height: `${settings.labelHeight * 4}px`,
                   maxWidth: '100%'
                 }}
               >
-                <div className="w-2/3 aspect-square bg-slate-100 flex items-center justify-center border-2 border-[#0A192F]">
-                  <div className="w-3/4 h-3/4 grid grid-cols-4 grid-rows-4 gap-1">
-                    {[...Array(16)].map((_, i) => (
-                      <div key={i} className={`bg-[#0A192F] ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
-                    ))}
+                {settings.labelTemplate === 'modern' ? (
+                  <>
+                    {/* Green Accent Bar */}
+                    <div className="h-1 bg-[#10B981] w-full" />
+
+                    <div className="bg-[#0A192F] py-2 px-4 flex items-center justify-between">
+                      {settings.logoUrl ? (
+                        <img src={settings.logoUrl} alt="Logo" className="h-4 object-contain brightness-0 invert" />
+                      ) : (
+                        <span className="text-white font-black text-[10px] tracking-[0.2em] uppercase">GH DUTOS</span>
+                      )}
+                      <span className="text-white/40 text-[6px] font-bold uppercase tracking-widest">ID: AC-001</span>
+                    </div>
+                    
+                    <div className="flex-1 p-4 flex items-center gap-6">
+                      {/* QR Code Section */}
+                      <div className="p-1 border border-[#0A192F] bg-white">
+                        <QRCodeCanvas 
+                          value="https://ghdutos.com.br/asset/AC-001" 
+                          size={Math.min(settings.labelHeight * 2.5, 80)}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                      
+                      {/* Data Section */}
+                      <div className="flex-1 flex flex-col justify-center space-y-1 border-l border-[#E5E7EB] pl-6">
+                        {settings.labelShowCode && (
+                          <div className="flex flex-col">
+                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Código</span>
+                            <p className="text-sm font-black text-[#0A192F] uppercase tracking-tighter leading-none">AC-001</p>
+                          </div>
+                        )}
+                        {settings.labelShowType && (
+                          <div className="flex flex-col">
+                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Equipamento</span>
+                            <p className="text-[9px] font-bold text-[#4B5563] uppercase leading-tight">CHILLER CARRIER</p>
+                          </div>
+                        )}
+                        {settings.labelShowLocal && (
+                          <div className="flex flex-col">
+                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Localização</span>
+                            <p className="text-[9px] font-bold text-[#6B7280] uppercase leading-tight">SALA TÉCNICA - 2º ANDAR</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Label Footer */}
+                    <div className="border-t border-[#F3F4F6] py-1 px-4 flex justify-between items-center bg-[#F9FAFB]">
+                      <div className="flex flex-col">
+                        <span className="text-[6px] font-bold text-[#9CA3AF] uppercase tracking-widest">ghdutos.com.br</span>
+                        <span className="text-[6px] font-black text-[#0A192F]">{settings.labelPhone || '(00) 0000-0000'}</span>
+                      </div>
+                      <span className="text-[6px] font-black text-[#0A192F] uppercase tracking-tighter">ENGENHARIA E MANUTENÇÃO</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-between p-4">
+                    {/* QR Code at Top */}
+                    <div className="mt-2">
+                      <QRCodeCanvas 
+                        value="https://ghdutos.com.br/asset/AC-001" 
+                        size={Math.min(settings.labelHeight * 2.5, 60)}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+
+                    {/* Asset Code in Middle */}
+                    <div className="w-full text-center space-y-1">
+                      <p className="text-2xl font-black text-[#0A192F] tracking-tight">AC-001</p>
+                      <div className="h-[2px] bg-[#0A192F] w-3/4 mx-auto" />
+                    </div>
+
+                    {/* Logo at Bottom - Full Width focus */}
+                    <div className="w-full flex flex-col items-center mt-auto mb-2 px-4">
+                      {settings.logoUrl ? (
+                        <img src={settings.logoUrl} alt="Logo" className="h-28 w-auto object-contain" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
+                            <span className="text-sm font-black -rotate-45">GH</span>
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <span className="text-[10px] font-black text-[#0A192F] leading-none">GH INSTALAÇÃO</span>
+                            <span className="text-[10px] font-bold text-[#0A192F]">{settings.labelPhone || '(11) 3208-1276'}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="text-center space-y-1">
-                  {settings.labelShowCode && <p className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">AC-001</p>}
-                  {settings.labelShowType && <p className="text-[8px] font-bold text-[#6B7280] uppercase tracking-widest">CHILLER CARRIER</p>}
-                  {settings.labelShowLocal && <p className="text-[8px] font-bold text-[#9CA3AF] uppercase tracking-widest">SALA TÉCNICA - 2º ANDAR</p>}
-                </div>
+                )}
               </div>
             )}
           </div>

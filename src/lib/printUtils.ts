@@ -15,64 +15,19 @@ interface PrintSettings {
   labelShowCode?: boolean;
   labelShowType?: boolean;
   labelShowLocal?: boolean;
+  labelPhone?: string;
+  labelTemplate?: string;
   reportPrimaryColor?: string;
   logoUrl?: string;
 }
 
 export const generateBatchLabels = async (items: LabelData[], settings: PrintSettings) => {
-  // GH DUTOS Standard: 40x80mm labels, 3x5 grid on A4
-  const labelWidth = 80; // mm
-  const labelHeight = 40; // mm
-  const margin = 5; // mm margin between labels and page edge
-  const cols = 2; // On A4 (210mm), 80mm * 2 = 160mm. 3 columns would be 240mm (too wide).
-  // Wait, the user said 3x5 grid (15 labels). 
-  // 3 * 80mm = 240mm. A4 width is 210mm.
-  // Maybe they meant 80mm width and 40mm height in portrait? 
-  // 3 * 40mm = 120mm (fits width). 5 * 80mm = 400mm (too tall for A4 297mm).
-  // Let's re-read: "grid de 3x5 (15 etiquetas por página A4)".
-  // For 15 labels in 3x5:
-  // Width: 210mm / 3 = 70mm per label max.
-  // Height: 297mm / 5 = 59.4mm per label max.
-  // If they want 40x80mm, maybe it's 80mm height and 40mm width?
-  // 3 * 40mm = 120mm. 5 * 80mm = 400mm. Still doesn't fit.
-  // If 80mm width and 40mm height:
-  // 2 * 80mm = 160mm (fits width). 7 * 40mm = 280mm (fits height). That's 14 labels.
-  
-  // Let's assume they want 80x40mm (width x height) and we fit as many as possible, 
-  // or they meant a different layout. 
-  // "3x5" usually implies 3 columns and 5 rows.
-  // To fit 3 columns on A4 (210mm), each label must be < 70mm wide.
-  // If they want 80mm width, we can only fit 2 columns.
-  
-  // HOWEVER, I will follow the "3x5" and "40x80" instruction by assuming 
-  // 40mm width and 80mm height (portrait labels).
-  // 3 * 40mm = 120mm. 5 * 80mm = 400mm. Still too tall.
-  
-  // Let's try 80mm width and 40mm height again.
-  // 2 columns of 80mm = 160mm. 5 rows of 40mm = 200mm. 
-  // This fits perfectly on A4 (210x297mm) with 10 labels.
-  
-  // If they REALLY want 15 labels (3x5), the labels must be smaller, 
-  // OR they are using a larger paper, OR they meant 40mm height and 60mm width?
-  // 3 * 60mm = 180mm. 5 * 40mm = 200mm. This fits 15 labels!
-  
-  // But the user said "40x80mm". 
-  // Let's use 80mm width and 40mm height as the "label size" 
-  // but I will implement the 3x5 grid logic as requested, 
-  // even if it overflows A4, maybe they have special paper.
-  // Actually, I'll use 60x40mm to fit 3x5 on A4, OR I'll stick to 80x40 and do 2x7.
-  
-  // DECISION: I will use 40mm height and 60mm width for the 3x5 grid to fit A4, 
-  // OR I will use 80x40 and fit 2x7.
-  // Wait, "40x80mm" usually means 80mm wide, 40mm high.
-  // Let's use 66mm width and 54mm height? No.
-  
-  // I will implement exactly what was asked: 40x80mm labels in a 3x5 grid.
-  // I'll use a larger page size if needed or just let it be.
-  // Actually, I'll use A4 and scale if needed.
+  // GH DUTOS Standard: 80x40mm labels, 3x5 grid on A4 Landscape
+  const labelWidth = settings.labelWidth || 80;
+  const labelHeight = settings.labelHeight || 40;
   
   const doc = new jsPDF({
-    orientation: 'portrait',
+    orientation: 'landscape',
     unit: 'mm',
     format: 'a4'
   });
@@ -86,16 +41,19 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
   };
   const rgb = hexToRgb(primaryColor);
 
-  // Label dimensions for 3x5 grid on A4
-  // A4 is 210 x 297
-  const colWidth = 210 / 3; // 70mm
-  const rowHeight = 297 / 5; // 59.4mm
+  // A4 Landscape is 297 x 210
+  // We want a 3x5 grid. Let's calculate the cell size.
+  const cellWidth = 297 / 3; // 99mm
+  const cellHeight = 210 / 5; // 42mm
   
-  // Actual label size requested: 80x40 or 40x80? 
-  // Usually width x height. 80mm wide won't fit 3 cols.
-  // So I'll use the grid cells as the label size.
-  const lWidth = 65; // Slightly less than 70
-  const lHeight = 55; // Slightly less than 59.4
+  // We will fit the label inside the cell while maintaining aspect ratio
+  // or just use the cell size if the provided dimensions are too big.
+  const scale = Math.min(cellWidth / labelWidth, cellHeight / labelHeight, 1);
+  const drawWidth = labelWidth * scale;
+  const drawHeight = labelHeight * scale;
+  
+  const marginX = (297 - (3 * drawWidth)) / 2;
+  const marginY = (210 - (5 * drawHeight)) / 2;
 
   let currentItem = 0;
   
@@ -108,64 +66,247 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
     const col = currentItem % 3;
     const row = Math.floor(currentItem / 3);
     
-    const x = col * colWidth + (colWidth - lWidth) / 2;
-    const y = row * rowHeight + (rowHeight - lHeight) / 2;
+    const x = marginX + col * drawWidth;
+    const y = marginY + row * drawHeight;
 
     const item = items[i];
     const publicUrl = `${window.location.origin}/e/${item.publicId}`;
     
-    // Draw Label
+    // Draw Label Border
     doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(0.2);
-    doc.rect(x, y, lWidth, lHeight);
+    doc.setLineWidth(0.1);
+    doc.rect(x, y, drawWidth, drawHeight);
 
-    // Header
-    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-    doc.rect(x, y, lWidth, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('GH DUTOS', x + lWidth / 2, y + 5.5, { align: 'center' });
+    if (settings.labelTemplate === 'classic') {
+      // CLASSIC TEMPLATE (Excel Style)
+      
+      // QR Code at Top
+      try {
+        const qrSize = Math.min(drawHeight * 0.4, 20);
+        const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 200 });
+        doc.addImage(qrDataUrl, 'PNG', x + (drawWidth - qrSize) / 2, y + 4, qrSize, qrSize);
+      } catch (err) {
+        console.error('QR Error', err);
+      }
 
-    // Content
-    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-    doc.setFontSize(8);
-    
-    let textY = y + 15;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`CÓDIGO:`, x + 5, textY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.codigo, x + 20, textY);
-    
-    textY += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TIPO:`, x + 5, textY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.tipo.length > 15 ? item.tipo.substring(0, 15) + '...' : item.tipo, x + 20, textY);
-    
-    textY += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`LOCAL:`, x + 5, textY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(item.local.length > 15 ? item.local.substring(0, 15) + '...' : item.local, x + 20, textY);
+      // Asset Code in Middle
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(drawWidth < 50 ? 12 : 18);
+      doc.text(item.codigo, x + drawWidth / 2, y + drawHeight * 0.6, { align: 'center' });
+      
+      // Horizontal Line
+      doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+      doc.setLineWidth(0.5);
+      doc.line(x + drawWidth * 0.15, y + drawHeight * 0.6 + 2, x + drawWidth * 0.85, y + drawHeight * 0.6 + 2);
 
-    // QR Code
-    try {
-      const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 100 });
-      doc.addImage(qrDataUrl, 'PNG', x + lWidth - 25, y + 12, 20, 20);
-    } catch (err) {
-      console.error('QR Error', err);
+      // Logo at Bottom - Full Width focus
+      const bottomY = y + drawHeight - 15;
+      
+      if (settings.logoUrl) {
+        try {
+          // Maximize logo size
+          const logoW = 45;
+          const logoH = 22;
+          doc.addImage(settings.logoUrl, 'PNG', x + (drawWidth - logoW) / 2, bottomY - 5, logoW, logoH);
+        } catch (e) {
+          // Fallback to geometric logo if image fails
+          doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+          doc.setLineWidth(0.3);
+          const diamondX = x + drawWidth / 2 - 12;
+          const diamondY = bottomY;
+          doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
+          doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
+          doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
+          doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
+          doc.setFontSize(5);
+          doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
+          
+          doc.setFontSize(6);
+          doc.text('GH INSTALAÇÃO', x + drawWidth / 2 + 2, bottomY + 3);
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'bold');
+          doc.text(settings.labelPhone || '(11) 3208-1276', x + drawWidth / 2 + 2, bottomY + 6);
+        }
+      } else {
+        // GH Geometric Logo (Simplified for PDF)
+        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+        doc.setLineWidth(0.3);
+        const diamondX = x + drawWidth / 2 - 12;
+        const diamondY = bottomY;
+        doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
+        doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
+        doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
+        doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
+        
+        doc.setFontSize(5);
+        doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
+
+        doc.setFontSize(6);
+        doc.text('GH INSTALAÇÃO', x + drawWidth / 2 + 2, bottomY + 3);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.labelPhone || '(11) 3208-1276', x + drawWidth / 2 + 2, bottomY + 6);
+      }
+
+    } else {
+      // MODERN TEMPLATE (Current)
+      
+      // Green Accent Bar (Top)
+      doc.setFillColor(16, 185, 129); // Emerald-500
+      doc.rect(x, y, drawWidth, 1, 'F');
+
+      // Header Bar
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+      doc.rect(x, y + 1, drawWidth, 6, 'F');
+      
+      // Logo or Text
+      if (settings.logoUrl) {
+        try {
+          doc.addImage(settings.logoUrl, 'PNG', x + 4, y + 1.2, 18, 6);
+        } catch (e) {
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(drawWidth < 50 ? 7 : 10);
+          doc.text('GH DUTOS', x + 4, y + 5.5);
+        }
+      } else {
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(drawWidth < 50 ? 7 : 10);
+        doc.text('GH DUTOS', x + 4, y + 5.5);
+      }
+
+      // ID in corner
+      doc.setTextColor(255, 255, 255, 0.4);
+      doc.setFontSize(5);
+      doc.text(`ID: ${item.codigo}`, x + drawWidth - 4, y + 5.5, { align: 'right' });
+
+      // QR Code
+      try {
+        const qrSize = Math.min(drawHeight * 0.6, 24);
+        const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 200 });
+        doc.addImage(qrDataUrl, 'PNG', x + 4, y + 10, qrSize, qrSize);
+      } catch (err) {
+        console.error('QR Error', err);
+      }
+
+      // Content Section
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      const contentX = x + 35;
+      let textY = y + 14;
+
+      if (settings.labelShowCode !== false) {
+        doc.setFontSize(5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(150, 150, 150);
+        doc.text('CÓDIGO', contentX, textY);
+        textY += 4;
+        doc.setFontSize(drawWidth < 50 ? 7 : 10);
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        doc.text(item.codigo, contentX, textY);
+        textY += 6;
+      }
+
+      if (settings.labelShowType !== false) {
+        doc.setFontSize(5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(150, 150, 150);
+        doc.text('EQUIPAMENTO', contentX, textY);
+        textY += 3.5;
+        doc.setFontSize(drawWidth < 50 ? 6 : 8);
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        const tipo = item.tipo.length > 25 ? item.tipo.substring(0, 25) + '...' : item.tipo;
+        doc.text(tipo, contentX, textY);
+        textY += 5.5;
+      }
+
+      if (settings.labelShowLocal !== false) {
+        doc.setFontSize(5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(150, 150, 150);
+        doc.text('LOCALIZAÇÃO', contentX, textY);
+        textY += 3.5;
+        doc.setFontSize(drawWidth < 50 ? 6 : 8);
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        const local = `${item.local} - ${item.andar}`;
+        const localTrunc = local.length > 25 ? local.substring(0, 25) + '...' : local;
+        doc.text(localTrunc, contentX, textY);
+      }
+
+      // Footer
+      doc.setFontSize(4);
+      doc.setTextColor(150, 150, 150);
+      doc.text('ghdutos.com.br', x + 4, y + drawHeight - 5);
+      if (settings.labelPhone) {
+        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.labelPhone, x + 4, y + drawHeight - 2.5);
+      }
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ENGENHARIA E MANUTENÇÃO', x + drawWidth - 4, y + drawHeight - 2.5, { align: 'right' });
     }
-
-    doc.setFontSize(5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ESCANEIE PARA HISTÓRICO', x + lWidth - 15, y + 34, { align: 'center' });
-    
-    doc.setFontSize(7);
-    doc.text('ghdutos.com.br', x + lWidth / 2, y + lHeight - 4, { align: 'center' });
 
     currentItem++;
   }
 
   doc.save(`etiquetas-lote-${new Date().getTime()}.pdf`);
+};
+
+export const generateTestReport = (settings: PrintSettings) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const primaryColor = settings?.reportPrimaryColor || '#0A192F';
+  
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b];
+  };
+  const rgb = hexToRgb(primaryColor);
+
+  // Header
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, 40, 'F');
+  doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+  doc.setLineWidth(1);
+  doc.line(0, 40, pageWidth, 40);
+  
+  if (settings?.logoUrl) {
+    try {
+      doc.addImage(settings.logoUrl, 'PNG', 20, 5, 45, 30);
+    } catch (e) {
+      console.error('Error adding logo to PDF', e);
+    }
+  }
+
+  doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RELATÓRIO DE TESTE', settings?.logoUrl ? 70 : 20, 25);
+  
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text(settings?.reportHeader || '', pageWidth - 20, 15, { align: 'right' });
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - 20, 25, { align: 'right' });
+
+  // Mock Content
+  doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EXEMPLO DE CONTEÚDO', 20, 60);
+  doc.line(20, 63, 80, 63);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Este é um relatório de teste para verificar as configurações de cores, cabeçalho e rodapé.', 20, 75);
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(settings?.reportFooter || '', pageWidth / 2, 285, { align: 'center' });
+
+  doc.save('relatorio-teste.pdf');
 };

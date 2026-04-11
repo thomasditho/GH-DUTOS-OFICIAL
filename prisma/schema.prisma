@@ -15,6 +15,8 @@ model User {
   role      String   @default("OPERATOR") // ADMIN, OPERATOR
   clientId  Int?     // Optional: Link user to a specific client
   client    Client?  @relation(fields: [clientId], references: [id])
+  auditLogs AuditLog[]
+  notifications Notification[]
   createdAt DateTime @default(now())
 }
 
@@ -78,5 +80,29 @@ model PrintSettings {
   labelShowCode     Boolean  @default(true)
   labelShowLocal    Boolean  @default(true)
   labelShowType     Boolean  @default(true)
+  labelPhone        String?  @default("(11) 3208-1276")
+  labelTemplate     String   @default("modern") // modern, classic
   updatedAt         DateTime @updatedAt
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // CREATE, UPDATE, DELETE
+  entity    String   // Equipment, Maintenance, User, Client
+  entityId  String?
+  details   String?  // JSON string with changes
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     // If null, it's for all admins
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   // INFO, WARNING, URGENT
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

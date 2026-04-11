@@ -14,6 +14,8 @@ import CalendarView from './pages/CalendarView';
 import PrintSettings from './pages/PrintSettings';
 import ClientManagement from './pages/ClientManagement';
 import ImportWizard from './pages/ImportWizard';
+import Reports from './pages/Reports';
+import AuditLogs from './pages/AuditLogs';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
@@ -61,6 +63,8 @@ const AppContent: React.FC = () => {
       />;
       case 'maintenances': return <MaintenanceHistory />;
       case 'calendar': return <CalendarView />;
+      case 'reports': return <Reports />;
+      case 'audit-logs': return user?.role === 'ADMIN' ? <AuditLogs /> : <Dashboard />;
       case 'clients': return user?.role === 'ADMIN' ? <ClientManagement /> : <Dashboard />;
       case 'settings': return user?.role === 'ADMIN' ? <PrintSettings /> : <Dashboard />;
       case 'users': return user?.role === 'ADMIN' ? <UserManagement /> : <Dashboard />;

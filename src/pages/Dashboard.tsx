@@ -51,7 +51,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   const COLORS = {
     'OPERACIONAL': '#10b981',
-    'MANUTENCAO': '#f59e0b',
+    'MANUTENCAO': '#10b981',
     'CRITICO': '#ef4444'
   };
 
@@ -105,13 +105,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="bg-white p-8 border-l-4 border-amber-500 shadow-sm rounded-none">
+        <div className="bg-white p-8 border-l-4 border-emerald-500 shadow-sm rounded-none">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.2em]">Próximos 15 dias</p>
-              <p className="text-4xl font-black text-amber-600 mt-2">{stats.maintenanceAlerts?.upcoming || 0}</p>
+              <p className="text-4xl font-black text-emerald-600 mt-2">{stats.maintenanceAlerts?.upcoming || 0}</p>
             </div>
-            <div className="p-4 bg-amber-50 text-amber-600">
+            <div className="p-4 bg-emerald-50 text-emerald-600">
               <Clock size={28} />
             </div>
           </div>

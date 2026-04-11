@@ -13,6 +13,22 @@ const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'gh-dutos-secret-2026';
 const PORT = 3000;
 
+async function createLog(userId: number, action: string, entity: string, entityId?: string, details?: any) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action,
+        entity,
+        entityId: entityId?.toString(),
+        details: details ? JSON.stringify(details) : null
+      }
+    });
+  } catch (err) {
+    console.error('Audit Log Error:', err);
+  }
+}
+
 // Setup multer for local uploads (fallback for Supabase/S3)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -72,7 +88,9 @@ async function startServer() {
           data: {
             reportHeader: 'GH DUTOS - Sistemas de Manutenção',
             reportFooter: 'www.ghdutos.com.br | (11) 9999-9999',
-            reportPrimaryColor: '#0A192F'
+            reportPrimaryColor: '#0A192F',
+            labelPhone: '(11) 3208-1276',
+            labelTemplate: 'modern'
           }
         });
       }
@@ -280,6 +298,9 @@ async function startServer() {
         }
       }
     });
+    
+    await createLog(req.user.id, 'CREATE', 'Equipment', equipment.id.toString(), { codigo: equipment.codigo });
+    
     res.json(equipment);
   });
 
@@ -328,6 +349,9 @@ async function startServer() {
         }
       }
     });
+
+    await createLog(req.user.id, 'UPDATE', 'Equipment', equipment.id.toString(), { codigo: equipment.codigo, status });
+
     res.json(equipment);
   });
 
@@ -344,6 +368,9 @@ async function startServer() {
       await prisma.equipment.delete({
         where: { id: parseInt(req.params.id) }
       });
+
+      await createLog(req.user.id, 'DELETE', 'Equipment', req.params.id, { codigo: existing.codigo });
+
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Erro ao excluir equipamento' });
@@ -372,7 +399,8 @@ async function startServer() {
 
     try {
       console.log('Lendo arquivo:', req.file.path);
-      const workbook = XLSX.readFile(req.file.path);
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const workbook = XLSX.read(fileBuffer);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
@@ -533,6 +561,9 @@ async function startServer() {
         arquivoUrl
       }
     });
+
+    await createLog(req.user.id, 'CREATE', 'Maintenance', maintenance.id.toString(), { equipmentId });
+
     res.json(maintenance);
   });
 
@@ -626,6 +657,58 @@ async function startServer() {
     } catch (err) {
       res.status(500).json({ error: 'Erro ao excluir cliente' });
     }
+  });
+
+  // Audit Logs
+  app.get('/api/audit-logs', authenticate, checkAdmin, async (req, res) => {
+    const logs = await prisma.auditLog.findMany({
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+    res.json(logs);
+  });
+
+  // Notifications
+  app.get('/api/notifications', authenticate, async (req: any, res) => {
+    const { id, role } = req.user;
+    const where = role === 'ADMIN' ? { OR: [{ userId: id }, { userId: null }] } : { userId: id };
+    
+    const notifications = await prisma.notification.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    res.json(notifications);
+  });
+
+  app.put('/api/notifications/:id/read', authenticate, async (req: any, res) => {
+    await prisma.notification.update({
+      where: { id: parseInt(req.params.id) },
+      data: { read: true }
+    });
+    res.json({ success: true });
+  });
+
+  // Reports Data
+  app.get('/api/reports/maintenance-summary', authenticate, checkAdmin, async (req, res) => {
+    const { clientId, startDate, endDate } = req.query;
+    
+    const where: any = {};
+    if (clientId) where.equipment = { clientId: parseInt(clientId as string) };
+    if (startDate || endDate) {
+      where.data = {};
+      if (startDate) where.data.gte = new Date(startDate as string);
+      if (endDate) where.data.lte = new Date(endDate as string);
+    }
+
+    const maintenances = await prisma.maintenance.findMany({
+      where,
+      include: { equipment: { include: { client: true } } },
+      orderBy: { data: 'desc' }
+    });
+
+    res.json(maintenances);
   });
 
   // Serve uploads

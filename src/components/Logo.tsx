@@ -24,7 +24,7 @@ const Logo: React.FC<LogoProps> = ({ className, variant = 'dark', size = 'md' })
 
   return (
     <div className={cn("flex flex-col items-start font-sans", className)}>
-      <div className={cn("bg-[#3A8D8F] w-full", barClasses[size])} />
+      <div className={cn("bg-[#10B981] w-full", barClasses[size])} />
       <div className={cn(
         "font-black tracking-tighter leading-none flex items-baseline gap-1",
         sizeClasses[size],
@@ -38,7 +38,7 @@ const Logo: React.FC<LogoProps> = ({ className, variant = 'dark', size = 'md' })
         size === 'sm' ? 'text-[7px]' : size === 'md' ? 'text-[9px]' : 'text-[12px]',
         isDark ? "text-[#0A192F]/60" : "text-white/60"
       )}>
-        Engenharia & Manutenção
+        ENGENHARIA E MANUTENÇÃO
       </p>
     </div>
   );

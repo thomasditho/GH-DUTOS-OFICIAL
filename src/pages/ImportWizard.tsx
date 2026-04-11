@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Loader2, Download, Table } from 'lucide-react';
 import { fetchApi } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { cn } from '../lib/utils';
@@ -26,6 +27,8 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
     periodicidade: ''
   });
   const [results, setResults] = useState<{ success: number; errors: string[] } | null>(null);
+
+  const { token } = useAuth();
 
   useEffect(() => {
     fetchApi('/api/clients').then(setClients).catch(() => {});
@@ -103,7 +106,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
       const response = await fetch('/api/equipments/import', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('gh_token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
@@ -170,7 +173,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
       <div className="bg-white border border-[#E5E7EB] shadow-2xl min-h-[400px] flex flex-col">
         {step === 1 && (
           <div className="p-12 flex-1 flex flex-col items-center justify-center text-center space-y-8">
-            <div className="w-20 h-20 bg-slate-50 flex items-center justify-center text-[#3A8D8F] rounded-full">
+            <div className="w-20 h-20 bg-slate-50 flex items-center justify-center text-emerald-500 rounded-full">
               <Upload size={40} />
             </div>
             <div className="max-w-md space-y-2">
@@ -387,7 +390,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
           <div className="p-12 flex-1 flex flex-col items-center justify-center text-center space-y-8">
             <div className={cn(
               "w-20 h-20 flex items-center justify-center rounded-full",
-              results.errors.length === 0 ? "bg-emerald-50 text-emerald-500" : "bg-amber-50 text-amber-500"
+              results.errors.length === 0 ? "bg-emerald-50 text-emerald-500" : "bg-emerald-50 text-emerald-500"
             )}>
               {results.errors.length === 0 ? <CheckCircle2 size={40} /> : <AlertCircle size={40} />}
             </div>

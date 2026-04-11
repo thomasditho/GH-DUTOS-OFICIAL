@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Package, LogOut, User as UserIcon, Menu, X, Clock, Calendar, Settings, Instagram, Facebook, MessageSquare, Globe, Shield, Folder, Mail } from 'lucide-react';
+import { LayoutDashboard, Package, LogOut, User as UserIcon, Menu, X, Clock, Calendar, Settings, Instagram, Facebook, MessageSquare, Globe, Shield, Folder, Mail, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 import { Toaster } from 'sonner';
 
 interface LayoutProps {
@@ -20,9 +21,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     { id: 'equipments', label: 'Ativos', icon: Package },
     { id: 'maintenances', label: 'Manutenções', icon: Clock },
     { id: 'calendar', label: 'Calendário', icon: Calendar },
+    { id: 'reports', label: 'Relatórios', icon: FileText },
     ...(user?.role === 'ADMIN' ? [
       { id: 'clients', label: 'Clientes', icon: Folder },
       { id: 'users', label: 'Usuários', icon: UserIcon },
+      { id: 'audit-logs', label: 'Auditoria', icon: Shield },
       { id: 'settings', label: 'Impressão', icon: Settings }
     ] : []),
   ];
@@ -94,11 +97,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                 activeTab === 'equipments' ? 'Inventário de Ativos' :
                 activeTab === 'maintenances' ? 'Histórico de Intervenções' : 
                 activeTab === 'calendar' ? 'Calendário de Visitas' : 
+                activeTab === 'reports' ? 'Central de Relatórios' :
+                activeTab === 'audit-logs' ? 'Logs de Auditoria' :
                 activeTab === 'settings' ? 'Configurações de Impressão' : 'Gestão de Acessos'}
              </h2>
           </div>
-          <div className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.15em]">
-            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.15em] hidden sm:block">
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
           </div>
         </header>
 
