@@ -16,8 +16,8 @@ const PORT = 3000;
 // Setup multer for local uploads (fallback for Supabase/S3)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = './uploads';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    const dir = '/tmp/uploads';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -352,19 +352,31 @@ async function startServer() {
 
   // Import Equipments from Excel
   app.post('/api/equipments/import', authenticate, upload.single('file'), async (req: any, res) => {
-    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    console.log('--- Início da Importação ---');
+    if (!req.file) {
+      console.error('Erro: Nenhum arquivo enviado');
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
     
     const { clientId, mapping } = req.body;
+    console.log('Client ID:', clientId);
+    console.log('Mapping:', mapping);
+
     const parsedMapping = JSON.parse(mapping);
     const targetClientId = parseInt(clientId);
 
-    if (!targetClientId) return res.status(400).json({ error: 'Cliente não selecionado' });
+    if (!targetClientId) {
+      console.error('Erro: Cliente não selecionado ou inválido');
+      return res.status(400).json({ error: 'Cliente não selecionado' });
+    }
 
     try {
+      console.log('Lendo arquivo:', req.file.path);
       const workbook = XLSX.readFile(req.file.path);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      console.log('Total de linhas brutas:', rows.length);
 
       // Intelligent Header Discovery
       let headerRowIndex = 0;
@@ -379,17 +391,19 @@ async function startServer() {
           keywords.some(kw => cell.toLowerCase().includes(kw))
         ).length;
 
-        // If we find a row with at least 3 matches, it's definitely the header
         if (matches >= 3 || (i < 5 && matches >= 2)) {
           headerRowIndex = i;
+          console.log(`Cabeçalho encontrado na linha ${i}`);
           break;
         }
       }
 
-      const headers = rows[headerRowIndex];
+      const headers = rows[headerRowIndex]?.map(h => typeof h === 'string' ? h.trim() : h);
       if (!headers || !Array.isArray(headers)) {
+        console.error('Erro: Cabeçalhos não encontrados');
         throw new Error('Não foi possível identificar os cabeçalhos da planilha');
       }
+      console.log('Cabeçalhos identificados:', headers);
 
       const data = rows.slice(headerRowIndex + 1).map(row => {
         const obj: any = {};
@@ -400,6 +414,7 @@ async function startServer() {
         });
         return obj;
       });
+      console.log('Total de objetos processados:', data.length);
 
       const results = {
         success: 0,
@@ -471,9 +486,13 @@ async function startServer() {
       fs.unlinkSync(req.file.path);
 
       res.json(results);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Import Error:', err);
-      res.status(500).json({ error: 'Erro ao processar arquivo Excel' });
+      res.status(500).json({ 
+        error: 'Erro ao processar arquivo Excel', 
+        details: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
     }
   });
 

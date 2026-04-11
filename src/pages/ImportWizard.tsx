@@ -108,13 +108,16 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
         body: formData
       });
       
-      if (!response.ok) throw new Error('Erro na importação');
-      
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Erro na importação');
+      }
+      
       setResults(data);
       setStep(4);
-    } catch (err) {
-      toast.error('Erro ao processar importação');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao processar importação');
     } finally {
       setLoading(false);
     }
