@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, QrCode, History, Info, Plus, Download, FileText, User, Calendar, AlertCircle, Clock } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { cn, formatDate } from '../lib/utils';
-import { jsPDF } from 'jspdf';
+import { generateBatchLabels, generateTestReport } from '../lib/printUtils';
 import { toast } from 'sonner';
 
 interface EquipmentDetailProps {
@@ -67,302 +67,24 @@ const EquipmentDetail: React.FC<EquipmentDetailProps> = ({ id, onBack, onEdit })
   };
 
   const generateLabel = () => {
-    const width = 80;
-    const height = 40;
-    const primaryColor = printSettings?.reportPrimaryColor || '#0A192F';
-
-    const doc = new jsPDF({
-      orientation: width > height ? 'landscape' : 'portrait',
-      unit: 'mm',
-      format: [width, height]
-    });
-
-    const hexToRgb = (hex: string) => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return [r, g, b];
+    if (!equipment || !printSettings) return;
+    
+    const labelData = {
+      codigo: equipment.codigo,
+      tipo: equipment.tipo,
+      local: equipment.local,
+      andar: equipment.andar,
+      publicId: equipment.publicId
     };
-    const rgb = hexToRgb(primaryColor);
 
-    // Border
-    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(0.1);
-    doc.rect(2, 2, width - 4, height - 4);
-
-    if (printSettings?.labelTemplate === 'classic') {
-      // CLASSIC TEMPLATE
-      
-      // QR Code at Top
-      const qrCanvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
-      if (qrCanvas) {
-        const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', (width - 20) / 2, 6, 20, 20);
-      }
-
-      // Asset Code in Middle
-      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text(equipment.codigo, width / 2, height * 0.6, { align: 'center' });
-      
-      // Horizontal Line
-      doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-      doc.setLineWidth(0.5);
-      doc.line(width * 0.15, height * 0.6 + 2, width * 0.85, height * 0.6 + 2);
-
-      // Logo at Bottom - Full Width focus
-      const bottomY = height - 15;
-      
-      if (printSettings?.logoUrl) {
-        try {
-          // Maximize logo size
-          const logoW = 45;
-          const logoH = 22;
-          doc.addImage(printSettings.logoUrl, 'PNG', (width - logoW) / 2, bottomY - 5, logoW, logoH);
-        } catch (e) {
-          // Fallback to geometric logo if image fails
-          doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-          doc.setLineWidth(0.3);
-          const diamondX = width / 2 - 12;
-          const diamondY = bottomY;
-          doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
-          doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
-          doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
-          doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
-          doc.setFontSize(5);
-          doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
-          
-          doc.setFontSize(6);
-          doc.text('GH INSTALAÇÃO', width / 2 + 2, bottomY + 3);
-          doc.setFontSize(6);
-          doc.setFont('helvetica', 'bold');
-          doc.text(printSettings?.labelPhone || '(11) 3208-1276', width / 2 + 2, bottomY + 6);
-        }
-      } else {
-        // GH Geometric Logo
-        doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-        doc.setLineWidth(0.3);
-        const diamondX = width / 2 - 12;
-        const diamondY = bottomY;
-        doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
-        doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
-        doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
-        doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
-        
-        doc.setFontSize(5);
-        doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
-
-        doc.setFontSize(6);
-        doc.text('GH INSTALAÇÃO', width / 2 + 2, bottomY + 3);
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.text(printSettings?.labelPhone || '(11) 3208-1276', width / 2 + 2, bottomY + 6);
-      }
-
-    } else {
-      // MODERN TEMPLATE
-      
-      // Header Bar
-      doc.setFillColor(16, 185, 129); // Emerald-500
-      doc.rect(2, 2, width - 4, 1, 'F');
-
-      doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-      doc.rect(2, 3, width - 4, 7, 'F');
-      
-      // Logo or Text
-      if (printSettings?.logoUrl) {
-        try {
-          doc.addImage(printSettings.logoUrl, 'PNG', 6, 3.5, 18, 6);
-        } catch (e) {
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(12);
-          doc.text('GH DUTOS', 6, 8.5);
-        }
-      } else {
-        doc.setTextColor(255, 255, 255);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('GH DUTOS', 6, 8.5);
-      }
-
-      // ID in corner
-      doc.setTextColor(255, 255, 255, 0.4);
-      doc.setFontSize(6);
-      doc.text(`ID: ${equipment.codigo}`, width - 6, 8.5, { align: 'right' });
-
-      // QR Code
-      const qrCanvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
-      if (qrCanvas) {
-        const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 6, 14, 24, 24);
-      }
-
-      // Content Section
-      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      const contentX = 35;
-      let textY = 18;
-
-      if (printSettings?.labelShowCode) {
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(150, 150, 150);
-        doc.text('CÓDIGO', contentX, textY);
-        textY += 4;
-        doc.setFontSize(10);
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.text(`${equipment.codigo}`, contentX, textY);
-        textY += 6;
-      }
-
-      if (printSettings?.labelShowType) {
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(150, 150, 150);
-        doc.text('EQUIPAMENTO', contentX, textY);
-        textY += 3.5;
-        doc.setFontSize(8);
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        const tipo = equipment.tipo.length > 25 ? equipment.tipo.substring(0, 25) + '...' : equipment.tipo;
-        doc.text(tipo, contentX, textY);
-        textY += 5.5;
-      }
-
-      if (printSettings?.labelShowLocal) {
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(150, 150, 150);
-        doc.text('LOCALIZAÇÃO', contentX, textY);
-        textY += 3.5;
-        doc.setFontSize(8);
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        const local = `${equipment.local} - ${equipment.andar}`;
-        const localTrunc = local.length > 25 ? local.substring(0, 25) + '...' : local;
-        doc.text(localTrunc, contentX, textY);
-      }
-
-      // Footer
-      doc.setFontSize(5);
-      doc.setTextColor(150, 150, 150);
-      doc.text('ghdutos.com.br', 6, height - 5);
-      if (printSettings?.labelPhone) {
-        doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.setFont('helvetica', 'bold');
-        doc.text(printSettings.labelPhone, 6, height - 2.5);
-      }
-      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ENGENHARIA E MANUTENÇÃO', width - 6, height - 3, { align: 'right' });
-    }
-
-    doc.save(`etiqueta-${equipment.codigo}.pdf`);
+    generateBatchLabels([labelData], printSettings);
+    toast.success('Etiqueta gerada com sucesso!');
   };
 
   const generateReport = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const primaryColor = printSettings?.reportPrimaryColor || '#0A192F';
-    
-    const hexToRgb = (hex: string) => {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return [r, g, b];
-    };
-    const rgb = hexToRgb(primaryColor);
-
-    // Header
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(1);
-    doc.line(0, 40, pageWidth, 40);
-    
-    if (printSettings?.logoUrl) {
-      try {
-        doc.addImage(printSettings.logoUrl, 'PNG', 20, 5, 45, 30);
-      } catch (e) {
-        console.error('Error adding logo to PDF', e);
-      }
-    }
-
-    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('RELATÓRIO DE MANUTENÇÃO', printSettings?.logoUrl ? 70 : 20, 25);
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(printSettings?.reportHeader || '', pageWidth - 20, 15, { align: 'right' });
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - 20, 25, { align: 'right' });
-
-    // Equipment Info
-    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DADOS DO ATIVO', 20, 55);
-    
-    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(0.5);
-    doc.line(20, 58, 65, 58);
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Código:', 20, 68);
-    doc.setFont('helvetica', 'normal');
-    doc.text(equipment.codigo, 45, 68);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Tipo:', 20, 75);
-    doc.setFont('helvetica', 'normal');
-    doc.text(equipment.tipo, 45, 75);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Localização:', 20, 82);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${equipment.local} - ${equipment.andar}`, 45, 82);
-
-    // Maintenance List
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('HISTÓRICO DE INTERVENÇÕES', 20, 100);
-    doc.line(20, 103, 90, 103);
-
-    let y = 115;
-    equipment.maintenances.forEach((m: any, index: number) => {
-      if (y > 250) {
-        doc.addPage();
-        y = 30;
-      }
-
-      doc.setFillColor(249, 250, 251);
-      doc.rect(20, y, pageWidth - 40, 35, 'F');
-      doc.setDrawColor(229, 231, 235);
-      doc.rect(20, y, pageWidth - 40, 35, 'S');
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Data: ${formatDate(m.data)}`, 25, y + 10);
-      doc.text(`Responsável: ${m.responsavel}`, pageWidth - 25, y + 10, { align: 'right' });
-
-      doc.setFont('helvetica', 'normal');
-      const splitDesc = doc.splitTextToSize(m.descricao, pageWidth - 50);
-      doc.text(splitDesc, 25, y + 20);
-
-      y += 45;
-    });
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(printSettings?.reportFooter || '', pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-    }
-
-    doc.save(`relatorio-${equipment.codigo}.pdf`);
+    if (!printSettings) return;
+    generateTestReport(printSettings);
+    toast.success('Relatório gerado com sucesso!');
   };
 
   if (loading || !equipment) return <div className="animate-pulse space-y-8">

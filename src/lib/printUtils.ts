@@ -19,18 +19,77 @@ interface PrintSettings {
   labelTemplate?: string;
   reportPrimaryColor?: string;
   logoUrl?: string;
+  reportHeader?: string;
+  reportFooter?: string;
 }
 
+// Helper to add image maintaining aspect ratio
+const addImageWithAspectRatio = (
+  doc: jsPDF, 
+  imgUrl: string, 
+  x: number, 
+  y: number, 
+  maxWidth: number, 
+  maxHeight: number,
+  align: 'left' | 'center' | 'right' = 'center'
+) => {
+  return new Promise<void>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      let width = maxWidth;
+      let height = width / ratio;
+
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = height * ratio;
+      }
+
+      let finalX = x;
+      if (align === 'center') finalX = x + (maxWidth - width) / 2;
+      if (align === 'right') finalX = x + (maxWidth - width);
+
+      try {
+        doc.addImage(imgUrl, 'PNG', finalX, y + (maxHeight - height) / 2, width, height);
+      } catch (e) {
+        console.error('Error adding image to PDF', e);
+      }
+      resolve();
+    };
+    img.onerror = () => {
+      console.error('Error loading image for PDF');
+      resolve();
+    };
+    img.src = imgUrl;
+  });
+};
+
 export const generateBatchLabels = async (items: LabelData[], settings: PrintSettings) => {
-  // GH DUTOS Standard: 80x40mm labels, 3x5 grid on A4 Landscape
   const labelWidth = settings.labelWidth || 80;
   const labelHeight = settings.labelHeight || 40;
   
+  // If it's a single label, use the label dimensions
+  const isSingle = items.length === 1;
+  
   const doc = new jsPDF({
-    orientation: 'landscape',
+    orientation: isSingle ? (labelWidth > labelHeight ? 'landscape' : 'portrait') : 'landscape',
     unit: 'mm',
-    format: 'a4'
-  });
+    format: isSingle ? [labelWidth, labelHeight] : 'a4'
+  }) as any;
+
+  // Add helper to truncate text based on width
+  doc.truncateText = (text: string, maxWidth: number) => {
+    const fontSize = doc.internal.getFontSize();
+    const scaleFactor = doc.internal.scaleFactor;
+    if ((doc.getStringUnitWidth(text) * fontSize) / scaleFactor <= maxWidth) {
+      return text;
+    }
+    let truncated = text;
+    while (truncated.length > 0 && ((doc.getStringUnitWidth(truncated + '...') * fontSize) / scaleFactor) > maxWidth) {
+      truncated = truncated.substring(0, truncated.length - 1);
+    }
+    return truncated + '...';
+  };
 
   const primaryColor = settings?.reportPrimaryColor || '#0A192F';
   const hexToRgb = (hex: string) => {
@@ -41,30 +100,26 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
   };
   const rgb = hexToRgb(primaryColor);
 
-  // A4 Landscape is 297 x 210
-  // We want a 3x5 grid. Let's calculate the cell size.
-  const cellWidth = 297 / 3; // 99mm
-  const cellHeight = 210 / 5; // 42mm
-  
-  // We will fit the label inside the cell while maintaining aspect ratio
-  // or just use the cell size if the provided dimensions are too big.
-  const scale = Math.min(cellWidth / labelWidth, cellHeight / labelHeight, 1);
+  // Grid calculation for A4
+  const cellWidth = 297 / 3;
+  const cellHeight = 210 / 5;
+  const scale = isSingle ? 1 : Math.min(cellWidth / labelWidth, cellHeight / labelHeight, 0.95);
   const drawWidth = labelWidth * scale;
   const drawHeight = labelHeight * scale;
   
-  const marginX = (297 - (3 * drawWidth)) / 2;
-  const marginY = (210 - (5 * drawHeight)) / 2;
+  const marginX = isSingle ? 0 : (297 - (3 * drawWidth)) / 2;
+  const marginY = isSingle ? 0 : (210 - (5 * drawHeight)) / 2;
 
   let currentItem = 0;
   
   for (let i = 0; i < items.length; i++) {
-    if (i > 0 && i % 15 === 0) {
+    if (!isSingle && i > 0 && i % 15 === 0) {
       doc.addPage();
       currentItem = 0;
     }
 
-    const col = currentItem % 3;
-    const row = Math.floor(currentItem / 3);
+    const col = isSingle ? 0 : currentItem % 3;
+    const row = isSingle ? 0 : Math.floor(currentItem / 3);
     
     const x = marginX + col * drawWidth;
     const y = marginY + row * drawHeight;
@@ -72,19 +127,22 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
     const item = items[i];
     const publicUrl = `${window.location.origin}/e/${item.publicId}`;
     
-    // Draw Label Border
-    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-    doc.setLineWidth(0.1);
-    doc.rect(x, y, drawWidth, drawHeight);
+    // Draw Label Border (optional for single, required for grid)
+    if (!isSingle) {
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.1);
+      doc.rect(x, y, drawWidth, drawHeight);
+    }
 
     if (settings.labelTemplate === 'classic') {
-      // CLASSIC TEMPLATE (Excel Style)
+      // CLASSIC TEMPLATE
       
       // QR Code at Top
       try {
-        const qrSize = Math.min(drawHeight * 0.4, 20);
+        const safeMargin = drawHeight * 0.08;
+        const qrSize = drawHeight * 0.28;
         const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 200 });
-        doc.addImage(qrDataUrl, 'PNG', x + (drawWidth - qrSize) / 2, y + 4, qrSize, qrSize);
+        doc.addImage(qrDataUrl, 'PNG', x + (drawWidth - qrSize) / 2, y + safeMargin, qrSize, qrSize);
       } catch (err) {
         console.error('QR Error', err);
       }
@@ -92,109 +150,79 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
       // Asset Code in Middle
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(drawWidth < 50 ? 12 : 18);
-      doc.text(item.codigo, x + drawWidth / 2, y + drawHeight * 0.6, { align: 'center' });
+      doc.setFontSize(drawHeight * 0.28);
+      doc.text(item.codigo, x + drawWidth / 2, y + drawHeight * 0.48, { align: 'center' });
       
       // Horizontal Line
       doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
       doc.setLineWidth(0.5);
-      doc.line(x + drawWidth * 0.15, y + drawHeight * 0.6 + 2, x + drawWidth * 0.85, y + drawHeight * 0.6 + 2);
+      doc.line(x + drawWidth * 0.1, y + drawHeight * 0.48 + 2, x + drawWidth * 0.9, y + drawHeight * 0.48 + 2);
 
-      // Logo at Bottom - Full Width focus
-      const bottomY = y + drawHeight - 15;
+      // Logo at Bottom
+      const logoAreaY = y + drawHeight * 0.58;
+      const logoAreaH = drawHeight * 0.34;
       
       if (settings.logoUrl) {
-        try {
-          // Maximize logo size
-          const logoW = 45;
-          const logoH = 22;
-          doc.addImage(settings.logoUrl, 'PNG', x + (drawWidth - logoW) / 2, bottomY - 5, logoW, logoH);
-        } catch (e) {
-          // Fallback to geometric logo if image fails
-          doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
-          doc.setLineWidth(0.3);
-          const diamondX = x + drawWidth / 2 - 12;
-          const diamondY = bottomY;
-          doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
-          doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
-          doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
-          doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
-          doc.setFontSize(5);
-          doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
-          
-          doc.setFontSize(6);
-          doc.text('GH INSTALAÇÃO', x + drawWidth / 2 + 2, bottomY + 3);
-          doc.setFontSize(6);
-          doc.setFont('helvetica', 'bold');
-          doc.text(settings.labelPhone || '(11) 3208-1276', x + drawWidth / 2 + 2, bottomY + 6);
-        }
+        await addImageWithAspectRatio(doc, settings.logoUrl, x + 5, logoAreaY, drawWidth - 10, logoAreaH);
       } else {
-        // GH Geometric Logo (Simplified for PDF)
+        // Fallback Geometric Logo
         doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
         doc.setLineWidth(0.3);
-        const diamondX = x + drawWidth / 2 - 12;
-        const diamondY = bottomY;
+        const diamondX = x + drawWidth / 2 - 15;
+        const diamondY = logoAreaY + 2;
         doc.line(diamondX, diamondY + 4, diamondX + 4, diamondY);
         doc.line(diamondX + 4, diamondY, diamondX + 8, diamondY + 4);
         doc.line(diamondX + 8, diamondY + 4, diamondX + 4, diamondY + 8);
         doc.line(diamondX + 4, diamondY + 8, diamondX, diamondY + 4);
-        
         doc.setFontSize(5);
         doc.text('GH', diamondX + 4, diamondY + 5, { align: 'center' });
-
-        doc.setFontSize(6);
-        doc.text('GH INSTALAÇÃO', x + drawWidth / 2 + 2, bottomY + 3);
-        doc.setFontSize(6);
+        doc.setFontSize(7);
+        doc.text('GH INSTALAÇÃO', x + drawWidth / 2 + 2, diamondY + 3);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text(settings.labelPhone || '(11) 3208-1276', x + drawWidth / 2 + 2, bottomY + 6);
+        doc.text(settings.labelPhone || '(11) 3208-1276', x + drawWidth / 2 + 2, diamondY + 7);
       }
 
     } else {
-      // MODERN TEMPLATE (Current)
+      // MODERN TEMPLATE
       
-      // Green Accent Bar (Top)
-      doc.setFillColor(16, 185, 129); // Emerald-500
+      // Green Accent Bar
+      doc.setFillColor(16, 185, 129);
       doc.rect(x, y, drawWidth, 1, 'F');
 
       // Header Bar
       doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-      doc.rect(x, y + 1, drawWidth, 6, 'F');
+      doc.rect(x, y + 1, drawWidth, 7, 'F');
       
-      // Logo or Text
+      // Logo in Header
       if (settings.logoUrl) {
-        try {
-          doc.addImage(settings.logoUrl, 'PNG', x + 4, y + 1.2, 18, 6);
-        } catch (e) {
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(drawWidth < 50 ? 7 : 10);
-          doc.text('GH DUTOS', x + 4, y + 5.5);
-        }
+        await addImageWithAspectRatio(doc, settings.logoUrl, x + 4, y + 1.5, 20, 6, 'left');
       } else {
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(drawWidth < 50 ? 7 : 10);
-        doc.text('GH DUTOS', x + 4, y + 5.5);
+        doc.setFontSize(10);
+        doc.text('GH DUTOS', x + 4, y + 6);
       }
 
       // ID in corner
-      doc.setTextColor(255, 255, 255, 0.4);
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(5);
-      doc.text(`ID: ${item.codigo}`, x + drawWidth - 4, y + 5.5, { align: 'right' });
+      doc.text(`ID: ${item.codigo}`, x + drawWidth - 4, y + 6, { align: 'right' });
 
       // QR Code
       try {
-        const qrSize = Math.min(drawHeight * 0.6, 24);
+        const qrSize = drawHeight * 0.55;
         const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 200 });
-        doc.addImage(qrDataUrl, 'PNG', x + 4, y + 10, qrSize, qrSize);
+        doc.addImage(qrDataUrl, 'PNG', x + 4, y + 11, qrSize, qrSize);
       } catch (err) {
         console.error('QR Error', err);
       }
 
       // Content Section
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      const contentX = x + 35;
-      let textY = y + 14;
+      const contentX = x + (drawWidth * 0.42);
+      const maxTextWidth = drawWidth * 0.52; // Prevent overlap with right-aligned footer
+      let textY = y + 15;
 
       if (settings.labelShowCode !== false) {
         doc.setFontSize(5);
@@ -202,7 +230,7 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('CÓDIGO', contentX, textY);
         textY += 4;
-        doc.setFontSize(drawWidth < 50 ? 7 : 10);
+        doc.setFontSize(9);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
         doc.text(item.codigo, contentX, textY);
         textY += 6;
@@ -214,9 +242,9 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('EQUIPAMENTO', contentX, textY);
         textY += 3.5;
-        doc.setFontSize(drawWidth < 50 ? 6 : 8);
+        doc.setFontSize(7);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        const tipo = item.tipo.length > 25 ? item.tipo.substring(0, 25) + '...' : item.tipo;
+        const tipo = doc.truncateText(item.tipo, maxTextWidth);
         doc.text(tipo, contentX, textY);
         textY += 5.5;
       }
@@ -227,15 +255,15 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('LOCALIZAÇÃO', contentX, textY);
         textY += 3.5;
-        doc.setFontSize(drawWidth < 50 ? 6 : 8);
+        doc.setFontSize(7);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
         const local = `${item.local} - ${item.andar}`;
-        const localTrunc = local.length > 25 ? local.substring(0, 25) + '...' : local;
+        const localTrunc = doc.truncateText(local, maxTextWidth);
         doc.text(localTrunc, contentX, textY);
       }
 
       // Footer
-      doc.setFontSize(4);
+      doc.setFontSize(4.5);
       doc.setTextColor(150, 150, 150);
       doc.text('ghdutos.com.br', x + 4, y + drawHeight - 5);
       if (settings.labelPhone) {
@@ -251,10 +279,10 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
     currentItem++;
   }
 
-  doc.save(`etiquetas-lote-${new Date().getTime()}.pdf`);
+  doc.save(isSingle ? `etiqueta-${items[0].codigo}.pdf` : `etiquetas-lote-${new Date().getTime()}.pdf`);
 };
 
-export const generateTestReport = (settings: PrintSettings) => {
+export const generateTestReport = async (settings: PrintSettings) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const primaryColor = settings?.reportPrimaryColor || '#0A192F';
@@ -275,11 +303,7 @@ export const generateTestReport = (settings: PrintSettings) => {
   doc.line(0, 40, pageWidth, 40);
   
   if (settings?.logoUrl) {
-    try {
-      doc.addImage(settings.logoUrl, 'PNG', 20, 5, 45, 30);
-    } catch (e) {
-      console.error('Error adding logo to PDF', e);
-    }
+    await addImageWithAspectRatio(doc, settings.logoUrl, 20, 5, 45, 30, 'left');
   }
 
   doc.setTextColor(rgb[0], rgb[1], rgb[2]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, FileText, Printer, Save, Upload, Eye, Palette, Layout as LayoutIcon } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { Settings, FileText, Printer, Save, Upload, Eye, Palette, Layout as LayoutIcon, X } from 'lucide-react';
 import { fetchApi } from '../services/api';
 import { toast } from 'sonner';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -67,15 +68,102 @@ const PrintSettings: React.FC = () => {
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSettings({ ...settings, logoUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('A imagem deve ter no máximo 2MB');
+        return;
+      }
+
+      const toastId = toast.loading('Processando imagem...');
+      
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result as string;
+          
+          // Auto-trim white/transparent space
+          const trimmedBase64 = await trimImage(base64);
+          
+          setSettings({ ...settings, logoUrl: trimmedBase64 });
+          toast.success('Logo otimizada e carregada!', { id: toastId });
+        };
+        reader.readAsDataURL(file);
+      } catch (err) {
+        toast.error('Erro ao processar imagem', { id: toastId });
+      }
     }
+  };
+
+  const trimImage = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        let r = { top: canvas.height, left: canvas.width, bottom: 0, right: 0 };
+
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            const idx = (y * canvas.width + x) * 4;
+            const alpha = data[idx + 3];
+            const r_val = data[idx];
+            const g_val = data[idx + 1];
+            const b_val = data[idx + 2];
+            
+            // Consider non-transparent and non-white pixels
+            const isWhite = r_val > 250 && g_val > 250 && b_val > 250;
+            if (alpha > 10 && !isWhite) {
+              if (x < r.left) r.left = x;
+              if (y < r.top) r.top = y;
+              if (x > r.right) r.right = x;
+              if (y > r.bottom) r.bottom = y;
+            }
+          }
+        }
+
+        // If no content found or error, return original
+        if (r.right <= r.left || r.bottom <= r.top) {
+          resolve(dataUrl);
+          return;
+        }
+
+        // Add a small padding (2px)
+        const padding = 2;
+        const left = Math.max(0, r.left - padding);
+        const top = Math.max(0, r.top - padding);
+        const right = Math.min(canvas.width - 1, r.right + padding);
+        const bottom = Math.min(canvas.height - 1, r.bottom + padding);
+        
+        const width = right - left + 1;
+        const height = bottom - top + 1;
+        
+        const trimmedCanvas = document.createElement('canvas');
+        trimmedCanvas.width = width;
+        trimmedCanvas.height = height;
+        const trimmedCtx = trimmedCanvas.getContext('2d');
+        trimmedCtx?.drawImage(canvas, left, top, width, height, 0, 0, width, height);
+        resolve(trimmedCanvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
+  const handleRemoveLogo = () => {
+    setSettings({ ...settings, logoUrl: '' });
+    toast.success('Logo removida');
   };
 
   if (loading) return <div className="animate-pulse space-y-8">
@@ -132,21 +220,40 @@ const PrintSettings: React.FC = () => {
                   <div className="flex items-center gap-6">
                     <div className="w-32 h-32 border-2 border-dashed border-[#E5E7EB] flex items-center justify-center bg-[#F9FAFB] relative overflow-hidden group">
                       {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                        <>
+                          <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button 
+                              onClick={handleRemoveLogo}
+                              className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                              title="Remover Logo"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </>
                       ) : (
-                        <Upload size={24} className="text-[#9CA3AF]" />
+                        <div className="flex flex-col items-center gap-2">
+                          <Upload size={24} className="text-[#9CA3AF]" />
+                          <span className="text-[8px] font-bold text-[#9CA3AF] uppercase">Upload</span>
+                        </div>
                       )}
                       <input 
                         type="file" 
                         accept="image/*" 
                         onChange={handleLogoUpload}
-                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                        className={cn("absolute inset-0 opacity-0 cursor-pointer", settings.logoUrl && "hidden")} 
                       />
                     </div>
                     <div className="flex-1 space-y-2">
                       <p className="text-xs font-bold text-[#0A192F]">Logotipo da Empresa</p>
-                      <p className="text-[10px] text-[#6B7280] leading-relaxed">Recomendado: PNG transparente, mínimo 400px de largura.</p>
-                      <button className="text-[10px] font-black text-[#3A8D8F] uppercase tracking-widest hover:underline">Alterar Imagem</button>
+                      <p className="text-[10px] text-[#6B7280] leading-relaxed">Recomendado: PNG transparente, máximo 2MB.</p>
+                      {!settings.logoUrl && (
+                        <label className="text-[10px] font-black text-[#3A8D8F] uppercase tracking-widest hover:underline cursor-pointer">
+                          Selecionar Imagem
+                          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        </label>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -335,14 +442,14 @@ const PrintSettings: React.FC = () => {
           </div>
 
           {/* Preview Section */}
-          <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-8 flex flex-col items-center justify-center min-h-[500px] relative">
-            <div className="absolute top-4 left-4 flex items-center gap-2 text-[#9CA3AF]">
+          <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 lg:p-12 flex flex-col items-center justify-center min-h-[500px] relative overflow-hidden">
+            <div className="absolute top-4 left-4 flex items-center gap-2 text-[#9CA3AF] z-10">
               <Eye size={14} />
               <span className="text-[10px] font-black uppercase tracking-widest">Pré-visualização em Tempo Real</span>
             </div>
 
             {activeTab === 'report' ? (
-              <div className="w-full max-w-md bg-white shadow-2xl border border-[#E5E7EB] aspect-[1/1.4] p-8 space-y-6 overflow-hidden">
+              <div className="w-full max-w-md bg-white shadow-2xl border border-[#E5E7EB] aspect-[1/1.4] p-8 space-y-6 overflow-hidden transform transition-transform hover:scale-[1.02]">
                 <div className="flex justify-between items-start border-b-2 pb-4" style={{ borderColor: settings.reportPrimaryColor }}>
                   <div className="w-32 h-16 bg-white flex items-center justify-center overflow-hidden">
                     {settings.logoUrl ? (
@@ -371,107 +478,113 @@ const PrintSettings: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div 
-                className="bg-white shadow-2xl border border-[#E5E7EB] flex flex-col overflow-hidden relative"
-                style={{ 
-                  width: `${settings.labelWidth * 4}px`, 
-                  height: `${settings.labelHeight * 4}px`,
-                  maxWidth: '100%'
-                }}
-              >
-                {settings.labelTemplate === 'modern' ? (
-                  <>
-                    {/* Green Accent Bar */}
-                    <div className="h-1 bg-[#10B981] w-full" />
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <div 
+                  className="bg-white shadow-2xl border border-[#E5E7EB] flex flex-col overflow-hidden relative origin-center transition-all duration-300"
+                  style={{ 
+                    width: `${(Number(settings.labelWidth) || 80) * 4}px`, 
+                    height: `${(Number(settings.labelHeight) || 40) * 4}px`,
+                    transform: `scale(${Math.min(1, 450 / ((Number(settings.labelWidth) || 80) * 4), 400 / ((Number(settings.labelHeight) || 40) * 4))})`,
+                  }}
+                >
+                  {settings.labelTemplate === 'modern' ? (
+                    <div className="w-full h-full flex flex-col p-[4%]">
+                      <div className="w-full h-full flex flex-col border border-slate-100 rounded-sm overflow-hidden shadow-sm bg-white">
+                        {/* Green Accent Bar */}
+                        <div className="h-[2%] bg-[#10B981] w-full" />
 
-                    <div className="bg-[#0A192F] py-2 px-4 flex items-center justify-between">
-                      {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="h-4 object-contain brightness-0 invert" />
-                      ) : (
-                        <span className="text-white font-black text-[10px] tracking-[0.2em] uppercase">GH DUTOS</span>
-                      )}
-                      <span className="text-white/40 text-[6px] font-bold uppercase tracking-widest">ID: AC-001</span>
+                        <div className="bg-[#0A192F] h-[15%] px-4 flex items-center justify-between">
+                          {settings.logoUrl ? (
+                            <img src={settings.logoUrl} alt="Logo" className="h-[70%] object-contain brightness-0 invert" />
+                          ) : (
+                            <span className="text-white font-black text-[10px] tracking-[0.2em] uppercase">GH DUTOS</span>
+                          )}
+                          <span className="text-white/40 text-[6px] font-bold uppercase tracking-widest">ID: AC-001</span>
+                        </div>
+                        
+                        <div className="flex-1 p-4 flex items-center gap-4 min-h-0">
+                          {/* QR Code Section */}
+                          <div className="p-1 border border-[#0A192F] bg-white flex-shrink-0">
+                            <QRCodeCanvas 
+                              value="https://ghdutos.com.br/asset/AC-001" 
+                              size={Math.min((Number(settings.labelHeight) || 40) * 1.8, (Number(settings.labelWidth) || 80) * 1.3, 90)}
+                              level="H"
+                              includeMargin={false}
+                            />
+                          </div>
+                          
+                          {/* Data Section */}
+                          <div className="flex-1 flex flex-col justify-center space-y-1 border-l border-[#E5E7EB] pl-4 min-w-0">
+                            {settings.labelShowCode && (
+                              <div className="flex flex-col">
+                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Código</span>
+                                <p className="text-sm font-black text-[#0A192F] uppercase tracking-tighter leading-none truncate">AC-001</p>
+                              </div>
+                            )}
+                            {settings.labelShowType && (
+                              <div className="flex flex-col">
+                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Equipamento</span>
+                                <p className="text-[9px] font-bold text-[#4B5563] uppercase leading-tight truncate">CHILLER CARRIER</p>
+                              </div>
+                            )}
+                            {settings.labelShowLocal && (
+                              <div className="flex flex-col">
+                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Localização</span>
+                                <p className="text-[9px] font-bold text-[#6B7280] uppercase leading-tight truncate">SALA TÉCNICA - 2º ANDAR</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Label Footer */}
+                        <div className="border-t border-[#F3F4F6] h-[15%] px-4 flex justify-between items-center bg-[#F9FAFB] mt-auto">
+                          <div className="flex flex-col">
+                            <span className="text-[6px] font-bold text-[#9CA3AF] uppercase tracking-widest">ghdutos.com.br</span>
+                            <span className="text-[6px] font-black text-[#0A192F]">{settings.labelPhone || '(00) 0000-0000'}</span>
+                          </div>
+                          <span className="text-[6px] font-black text-[#0A192F] uppercase tracking-tighter">ENGENHARIA E MANUTENÇÃO</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="flex-1 p-4 flex items-center gap-6">
-                      {/* QR Code Section */}
-                      <div className="p-1 border border-[#0A192F] bg-white">
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-between p-[8%] bg-white">
+                      {/* QR Code at Top */}
+                      <div className="h-[30%] flex items-center justify-center">
                         <QRCodeCanvas 
                           value="https://ghdutos.com.br/asset/AC-001" 
-                          size={Math.min(settings.labelHeight * 2.5, 80)}
+                          size={Math.min((Number(settings.labelHeight) || 40) * 1.4, 75)}
                           level="H"
                           includeMargin={false}
                         />
                       </div>
-                      
-                      {/* Data Section */}
-                      <div className="flex-1 flex flex-col justify-center space-y-1 border-l border-[#E5E7EB] pl-6">
-                        {settings.labelShowCode && (
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Código</span>
-                            <p className="text-sm font-black text-[#0A192F] uppercase tracking-tighter leading-none">AC-001</p>
+
+                      {/* Asset Code in Middle */}
+                      <div className="w-full text-center space-y-1">
+                        <p className="text-2xl font-black text-[#0A192F] tracking-tight">AC-001</p>
+                        <div className="h-[2px] bg-[#0A192F] w-3/4 mx-auto" />
+                      </div>
+
+                      {/* Logo at Bottom - Full Width focus */}
+                      <div className="w-full h-[32%] flex flex-col items-center justify-center px-4 py-1 min-h-0">
+                        {settings.logoUrl ? (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                           </div>
-                        )}
-                        {settings.labelShowType && (
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Equipamento</span>
-                            <p className="text-[9px] font-bold text-[#4B5563] uppercase leading-tight">CHILLER CARRIER</p>
-                          </div>
-                        )}
-                        {settings.labelShowLocal && (
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Localização</span>
-                            <p className="text-[9px] font-bold text-[#6B7280] uppercase leading-tight">SALA TÉCNICA - 2º ANDAR</p>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
+                              <span className="text-sm font-black -rotate-45">GH</span>
+                            </div>
+                            <div className="flex flex-col items-start">
+                              <span className="text-[10px] font-black text-[#0A192F] leading-none">GH INSTALAÇÃO</span>
+                              <span className="text-[10px] font-bold text-[#0A192F]">{settings.labelPhone || '(11) 3208-1276'}</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
-                    
-                    {/* Label Footer */}
-                    <div className="border-t border-[#F3F4F6] py-1 px-4 flex justify-between items-center bg-[#F9FAFB]">
-                      <div className="flex flex-col">
-                        <span className="text-[6px] font-bold text-[#9CA3AF] uppercase tracking-widest">ghdutos.com.br</span>
-                        <span className="text-[6px] font-black text-[#0A192F]">{settings.labelPhone || '(00) 0000-0000'}</span>
-                      </div>
-                      <span className="text-[6px] font-black text-[#0A192F] uppercase tracking-tighter">ENGENHARIA E MANUTENÇÃO</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-between p-4">
-                    {/* QR Code at Top */}
-                    <div className="mt-2">
-                      <QRCodeCanvas 
-                        value="https://ghdutos.com.br/asset/AC-001" 
-                        size={Math.min(settings.labelHeight * 2.5, 60)}
-                        level="H"
-                        includeMargin={false}
-                      />
-                    </div>
-
-                    {/* Asset Code in Middle */}
-                    <div className="w-full text-center space-y-1">
-                      <p className="text-2xl font-black text-[#0A192F] tracking-tight">AC-001</p>
-                      <div className="h-[2px] bg-[#0A192F] w-3/4 mx-auto" />
-                    </div>
-
-                    {/* Logo at Bottom - Full Width focus */}
-                    <div className="w-full flex flex-col items-center mt-auto mb-2 px-4">
-                      {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="h-28 w-auto object-contain" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
-                            <span className="text-sm font-black -rotate-45">GH</span>
-                          </div>
-                          <div className="flex flex-col items-start">
-                            <span className="text-[10px] font-black text-[#0A192F] leading-none">GH INSTALAÇÃO</span>
-                            <span className="text-[10px] font-bold text-[#0A192F]">{settings.labelPhone || '(11) 3208-1276'}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
