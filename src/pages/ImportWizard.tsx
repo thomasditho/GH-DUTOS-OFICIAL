@@ -12,6 +12,7 @@ interface ImportWizardProps {
 
 const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
   const [step, setStep] = useState(1);
+  const [importMode, setImportMode] = useState<'quick' | 'custom' | null>(null);
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -47,7 +48,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
       if (rows.length > 0) {
         // Intelligent Header Discovery
         let headerRowIndex = 0;
-        const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period'];
+        const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period', 'modelo', 'marca'];
         
         for (let i = 0; i < Math.min(rows.length, 10); i++) {
           const row = rows[i];
@@ -67,15 +68,23 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
         const detectedHeaders = rows[headerRowIndex].map(h => String(h || '').trim()).filter(Boolean);
         setHeaders(detectedHeaders);
 
-        // Auto-mapping attempt
+        // Auto-mapping attempt (The "Glasses")
         const h = detectedHeaders.map(s => s.toLowerCase());
-        setMapping({
+        const newMapping = {
           codigo: detectedHeaders.find((_, i) => h[i].includes('tag') || h[i].includes('cod') || h[i].includes('identif')) || '',
-          tipo: detectedHeaders.find((_, i) => h[i].includes('tipo') || h[i].includes('equip')) || '',
-          local: detectedHeaders.find((_, i) => h[i].includes('local') || h[i].includes('setor')) || '',
+          tipo: detectedHeaders.find((_, i) => h[i].includes('tipo') || h[i].includes('modelo evaporadora') || h[i].includes('modelo ventilador') || h[i].includes('equipamento')) || '',
+          local: detectedHeaders.find((_, i) => h[i].includes('local da evaporadora') || h[i].includes('local do ventilador') || h[i].includes('setor') || h[i].includes('localização')) || '',
           andar: detectedHeaders.find((_, i) => h[i].includes('andar') || h[i].includes('pav')) || '',
           periodicidade: detectedHeaders.find((_, i) => h[i].includes('period') || h[i].includes('dias') || h[i].includes('frequ')) || ''
-        });
+        };
+        setMapping(newMapping);
+
+        // If all mandatory fields are found, we can suggest Quick Import
+        if (newMapping.codigo && newMapping.tipo && newMapping.local) {
+          setImportMode('quick');
+        } else {
+          setImportMode('custom');
+        }
       }
     };
     reader.readAsBinaryString(uploadedFile);
@@ -163,7 +172,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
             </div>
             <div className="max-w-md space-y-2">
               <h3 className="text-xl font-black text-[#0A192F] uppercase tracking-tight">Selecione o Arquivo</h3>
-              <p className="text-sm text-[#6B7280]">Escolha o cliente e faça o upload da planilha (.xlsx ou .csv) para iniciar o mapeamento.</p>
+              <p className="text-sm text-[#6B7280]">Escolha o cliente e faça o upload da planilha para iniciar.</p>
             </div>
 
             <div className="w-full max-w-sm space-y-6">
@@ -181,13 +190,29 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
 
               <label className="block w-full cursor-pointer group">
                 <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
-                <div className="w-full py-8 border-2 border-dashed border-[#E5E7EB] group-hover:border-[#3A8D8F] group-hover:bg-slate-50 transition-all flex flex-col items-center gap-2">
-                  <FileSpreadsheet className="text-[#9CA3AF] group-hover:text-[#3A8D8F]" size={32} />
-                  <span className="text-[10px] font-black text-[#9CA3AF] group-hover:text-[#0A192F] uppercase tracking-widest">
+                <div className={cn(
+                  "w-full py-8 border-2 border-dashed transition-all flex flex-col items-center gap-2",
+                  file ? "border-[#3A8D8F] bg-emerald-50" : "border-[#E5E7EB] group-hover:border-[#3A8D8F] group-hover:bg-slate-50"
+                )}>
+                  <FileSpreadsheet className={file ? "text-[#3A8D8F]" : "text-[#9CA3AF] group-hover:text-[#3A8D8F]"} size={32} />
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest",
+                    file ? "text-[#0A192F]" : "text-[#9CA3AF] group-hover:text-[#0A192F]"
+                  )}>
                     {file ? file.name : 'Clique para selecionar arquivo'}
                   </span>
                 </div>
               </label>
+
+              {file && importMode === 'quick' && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm flex items-start gap-3 text-left">
+                  <CheckCircle2 className="text-emerald-500 mt-0.5" size={16} />
+                  <div>
+                    <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Padrão Identificado!</h4>
+                    <p className="text-[11px] text-emerald-700 mt-1">Reconhecemos as colunas da planilha Verbenna. Você pode usar a Importação Rápida.</p>
+                  </div>
+                </div>
+              )}
 
               <button 
                 onClick={downloadTemplate}
@@ -197,13 +222,33 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onBack, onSuccess }) => {
               </button>
             </div>
 
-            <button 
-              disabled={!file || !selectedClientId}
-              onClick={() => setStep(2)}
-              className="px-12 py-4 bg-[#0A192F] text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#112240] disabled:opacity-50 transition-all flex items-center gap-3"
-            >
-              Próximo Passo <ArrowRight size={18} />
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
+                disabled={!file || !selectedClientId || importMode !== 'quick'}
+                onClick={() => {
+                  setStep(3);
+                }}
+                className="px-8 py-4 bg-[#3A8D8F] text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#2d6e70] disabled:opacity-50 transition-all flex flex-col items-center gap-1 shadow-lg"
+              >
+                <div className="flex items-center gap-2">
+                  Importação Rápida <ArrowRight size={18} />
+                </div>
+                <span className="text-[8px] opacity-70">Padrão Verbenna</span>
+              </button>
+
+              <button 
+                disabled={!file || !selectedClientId}
+                onClick={() => {
+                  setStep(2);
+                }}
+                className="px-8 py-4 bg-[#0A192F] text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#112240] disabled:opacity-50 transition-all flex flex-col items-center gap-1"
+              >
+                <div className="flex items-center gap-2">
+                  Mapeamento Manual <Table size={18} />
+                </div>
+                <span className="text-[8px] opacity-70">Outros Modelos</span>
+              </button>
+            </div>
           </div>
         )}
 

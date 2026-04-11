@@ -11,7 +11,7 @@ import * as XLSX from 'xlsx';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'gh-dutos-secret-2026';
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // Setup multer for local uploads (fallback for Supabase/S3)
 const storage = multer.diskStorage({
@@ -368,26 +368,35 @@ async function startServer() {
 
       // Intelligent Header Discovery
       let headerRowIndex = 0;
-      const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period'];
+      const keywords = ['tag', 'cod', 'identif', 'tipo', 'equip', 'local', 'setor', 'andar', 'pav', 'period', 'modelo', 'marca', 'capacidade', 'btu'];
       
-      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      for (let i = 0; i < Math.min(rows.length, 20); i++) {
         const row = rows[i];
         if (!row || !Array.isArray(row)) continue;
+        
         const matches = row.filter(cell => 
           cell && typeof cell === 'string' && 
           keywords.some(kw => cell.toLowerCase().includes(kw))
         ).length;
-        if (matches >= 2) {
+
+        // If we find a row with at least 3 matches, it's definitely the header
+        if (matches >= 3 || (i < 5 && matches >= 2)) {
           headerRowIndex = i;
           break;
         }
       }
 
       const headers = rows[headerRowIndex];
+      if (!headers || !Array.isArray(headers)) {
+        throw new Error('Não foi possível identificar os cabeçalhos da planilha');
+      }
+
       const data = rows.slice(headerRowIndex + 1).map(row => {
         const obj: any = {};
         headers.forEach((h, i) => {
-          if (h) obj[h] = row[i];
+          if (h && row && row[i] !== undefined && row[i] !== null && row[i] !== '') {
+            obj[h] = row[i];
+          }
         });
         return obj;
       });
@@ -399,14 +408,21 @@ async function startServer() {
 
       for (const row of data as any[]) {
         try {
-          const codigo = row[parsedMapping.codigo]?.toString().toUpperCase();
-          const tipo = row[parsedMapping.tipo]?.toString().toUpperCase();
-          const local = row[parsedMapping.local]?.toString().toUpperCase();
-          const andar = row[parsedMapping.andar]?.toString().toUpperCase();
+          // Skip rows that look like titles or are empty
+          const rowValues = Object.values(row);
+          if (rowValues.length < 2) continue; // Skip rows with only 1 column (likely titles or noise)
+          
+          const codigo = row[parsedMapping.codigo]?.toString().trim().toUpperCase();
+          const tipo = row[parsedMapping.tipo]?.toString().trim().toUpperCase();
+          const local = row[parsedMapping.local]?.toString().trim().toUpperCase();
+          const andar = row[parsedMapping.andar]?.toString().trim().toUpperCase();
           const periodicidade = parseInt(row[parsedMapping.periodicidade]) || null;
 
-          if (!codigo || !tipo || !local) {
-            results.errors.push(`Linha ignorada: Campos obrigatórios ausentes para ${codigo || 'item sem código'}`);
+          // If no code, it's definitely not an equipment row
+          if (!codigo) continue;
+
+          if (!tipo || !local) {
+            results.errors.push(`Linha ignorada: Campos obrigatórios (Tipo/Local) ausentes para o código ${codigo}`);
             continue;
           }
 
