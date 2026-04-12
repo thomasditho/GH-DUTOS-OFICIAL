@@ -111,7 +111,7 @@ const PublicEquipment: React.FC = () => {
                   <div className="p-2 bg-slate-100 text-[#0A192F]"><Clock size={18} /></div>
                   <div>
                     <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Localização</p>
-                    <p className="text-sm font-bold text-[#4B5563] uppercase leading-tight">{equipment.local} • {equipment.andar}</p>
+                    <p className="text-sm font-bold text-[#4B5563] uppercase leading-tight">{equipment.local}</p>
                   </div>
                 </div>
               </div>

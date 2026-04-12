@@ -15,9 +15,9 @@ const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess, pr
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     codigo: '',
-    tipo: '',
+    tipo: 'AR CONDICIONADO',
     local: '',
-    andar: '',
+    andar: 'N/A',
     status: 'OPERACIONAL',
     dataInstalacao: '',
     periodicidadeManutencao: '',
@@ -119,12 +119,16 @@ const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess, pr
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Tipo de Ativo *</label>
-              <input 
-                type="text" required placeholder="EX: CHILLER, SPLIT, DUTO"
-                className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase tracking-wider focus:border-[#0A192F] outline-none transition-all"
+              <select 
+                required
+                className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase tracking-wider focus:border-[#0A192F] outline-none transition-all appearance-none"
                 value={formData.tipo}
-                onChange={e => setFormData({...formData, tipo: e.target.value.toUpperCase()})}
-              />
+                onChange={e => setFormData({...formData, tipo: e.target.value})}
+              >
+                <option value="AR CONDICIONADO">AR CONDICIONADO</option>
+                <option value="VENTILADOR">VENTILADOR</option>
+                <option value="EXAUSTOR">EXAUSTOR</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Local / Setor *</label>
@@ -133,15 +137,6 @@ const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess, pr
                 className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase tracking-wider focus:border-[#0A192F] outline-none transition-all"
                 value={formData.local}
                 onChange={e => setFormData({...formData, local: e.target.value.toUpperCase()})}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Andar / Pavimento *</label>
-              <input 
-                type="text" required placeholder="EX: 2º ANDAR"
-                className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase tracking-wider focus:border-[#0A192F] outline-none transition-all"
-                value={formData.andar}
-                onChange={e => setFormData({...formData, andar: e.target.value.toUpperCase()})}
               />
             </div>
             <div className="space-y-2">

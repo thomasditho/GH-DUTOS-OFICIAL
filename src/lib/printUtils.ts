@@ -257,7 +257,7 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         textY += 3.5;
         doc.setFontSize(7);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        const local = `${item.local} - ${item.andar}`;
+        const local = item.local;
         const localTrunc = doc.truncateText(local, maxTextWidth);
         doc.text(localTrunc, contentX, textY);
       }

@@ -124,7 +124,7 @@ const EquipmentDetail: React.FC<EquipmentDetailProps> = ({ id, onBack, onEdit })
                 </div>
               )}
             </div>
-            <p className="text-[#6B7280] text-xs font-bold uppercase tracking-widest mt-1">{equipment.tipo} • {equipment.local} ({equipment.andar})</p>
+            <p className="text-[#6B7280] text-xs font-bold uppercase tracking-widest mt-1">{equipment.tipo} • {equipment.local}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">

@@ -34,7 +34,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
-  const [andarFilter, setAndarFilter] = useState<string>('ALL');
+  const [tipoFilter, setTipoFilter] = useState<string>('ALL');
   const [localFilter, setLocalFilter] = useState<string>('ALL');
   const [clientFilter, setClientFilter] = useState<string>('ALL');
   const [clients, setClients] = useState<any[]>([]);
@@ -54,7 +54,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
 
   useEffect(() => {
     setSelectedItems([]);
-  }, [searchTerm, statusFilter, andarFilter, localFilter, clientFilter]);
+  }, [searchTerm, statusFilter, tipoFilter, localFilter, clientFilter]);
 
   const handleStatusChange = (status: string) => {
     setStatusFilter(status);
@@ -68,7 +68,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
       .finally(() => setLoading(false));
   };
 
-  const andares = ['ALL', ...new Set(equipments.map(e => e.andar))].sort();
+  const tipos = ['ALL', 'AR CONDICIONADO', 'VENTILADOR', 'EXAUSTOR'];
   const locais = ['ALL', ...new Set(equipments.map(e => e.local))].sort();
 
   const handleDelete = async (id: number) => {
@@ -89,11 +89,11 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
       e.local.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'ALL' || e.status === statusFilter;
-    const matchesAndar = andarFilter === 'ALL' || e.andar === andarFilter;
+    const matchesTipo = tipoFilter === 'ALL' || e.tipo === tipoFilter;
     const matchesLocal = localFilter === 'ALL' || e.local === localFilter;
     const matchesClient = clientId ? e.clientId === clientId : (clientFilter === 'ALL' || e.client?.name === clientFilter);
     
-    return matchesSearch && matchesStatus && matchesAndar && matchesLocal && matchesClient;
+    return matchesSearch && matchesStatus && matchesTipo && matchesLocal && matchesClient;
   });
 
   const getStatusColor = (status: string) => {
@@ -200,12 +200,12 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
             </select>
             <select 
               className="px-4 py-3 bg-white border border-[#E5E7EB] text-xs font-bold text-[#4B5563] uppercase tracking-widest rounded-none focus:outline-none focus:border-[#0A192F]"
-              value={andarFilter}
-              onChange={(e) => setAndarFilter(e.target.value)}
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value)}
             >
-              <option value="ALL">TODOS OS ANDARES</option>
-              {andares.filter(a => a !== 'ALL').map(a => (
-                <option key={a} value={a}>{a}</option>
+              <option value="ALL">TODOS OS TIPOS</option>
+              {tipos.filter(t => t !== 'ALL').map(t => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
             <select 
@@ -290,7 +290,6 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
                   <td className="px-6 py-4 text-sm text-[#4B5563]">{e.tipo}</td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-[#4B5563]">{e.local}</div>
-                    <div className="text-[10px] text-[#9CA3AF] uppercase font-bold">{e.andar}</div>
                   </td>
                   <td className="px-6 py-4">
                     {e.status === 'OPERACIONAL' ? (
