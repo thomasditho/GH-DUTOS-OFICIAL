@@ -21,14 +21,15 @@ interface Equipment {
 
 interface EquipmentListProps {
   onSelect: (id: number) => void;
-  onNew: () => void;
+  onNew: (clientId?: number) => void;
   onImport: () => void;
   onEdit: (id: number) => void;
   initialStatus?: string;
   onFilterChange?: (status: string) => void;
+  clientId?: number;
 }
 
-const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport, onEdit, initialStatus = 'ALL', onFilterChange }) => {
+const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport, onEdit, initialStatus = 'ALL', onFilterChange, clientId }) => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,7 +91,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
     const matchesStatus = statusFilter === 'ALL' || e.status === statusFilter;
     const matchesAndar = andarFilter === 'ALL' || e.andar === andarFilter;
     const matchesLocal = localFilter === 'ALL' || e.local === localFilter;
-    const matchesClient = clientFilter === 'ALL' || e.client?.name === clientFilter;
+    const matchesClient = clientId ? e.clientId === clientId : (clientFilter === 'ALL' || e.client?.name === clientFilter);
     
     return matchesSearch && matchesStatus && matchesAndar && matchesLocal && matchesClient;
   });
@@ -164,7 +165,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
             Importar Excel
           </button>
           <button 
-            onClick={onNew}
+            onClick={() => onNew(clientId)}
             className="bg-[#0A192F] text-white px-8 py-4 flex items-center justify-center gap-3 font-bold text-xs uppercase tracking-[0.2em] hover:bg-[#112240] transition-all shadow-xl rounded-none border-b-4 border-[#3A8D8F]"
           >
             <Plus size={18} />
@@ -217,7 +218,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
-            {clients.length > 0 && (
+            {clients.length > 0 && !clientId && (
               <select 
                 className="px-4 py-3 bg-white border border-[#E5E7EB] text-xs font-bold text-[#4B5563] uppercase tracking-widest rounded-none focus:outline-none focus:border-[#0A192F]"
                 value={clientFilter}
@@ -242,7 +243,7 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
                   </button>
                 </th>
                 <th className="px-6 py-4">Código</th>
-                <th className="px-6 py-4">Cliente / Pasta</th>
+                {!clientId && <th className="px-6 py-4">Cliente / Pasta</th>}
                 <th className="px-6 py-4">Tipo</th>
                 <th className="px-6 py-4">Localização</th>
                 <th className="px-6 py-4">Status</th>
@@ -274,16 +275,18 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
                   <td className="px-6 py-4">
                     <span className="text-sm font-bold text-[#0A192F]">{e.codigo}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    {e.client ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.client.color }} />
-                        <span className="text-[10px] font-black text-[#0A192F] uppercase tracking-widest">{e.client.name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-[#9CA3AF] italic uppercase font-bold">Sem Cliente</span>
-                    )}
-                  </td>
+                  {!clientId && (
+                    <td className="px-6 py-4">
+                      {e.client ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.client.color }} />
+                          <span className="text-[10px] font-black text-[#0A192F] uppercase tracking-widest">{e.client.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-[#9CA3AF] italic uppercase font-bold">Sem Cliente</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-6 py-4 text-sm text-[#4B5563]">{e.tipo}</td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-[#4B5563]">{e.local}</div>

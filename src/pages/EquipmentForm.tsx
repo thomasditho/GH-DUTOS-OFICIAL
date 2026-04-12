@@ -8,9 +8,10 @@ interface EquipmentFormProps {
   id?: number;
   onBack: () => void;
   onSuccess: () => void;
+  preSelectedClientId?: number;
 }
 
-const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess }) => {
+const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess, preSelectedClientId }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     codigo: '',
@@ -20,7 +21,7 @@ const EquipmentForm: React.FC<EquipmentFormProps> = ({ id, onBack, onSuccess }) 
     status: 'OPERACIONAL',
     dataInstalacao: '',
     periodicidadeManutencao: '',
-    clientId: ''
+    clientId: preSelectedClientId?.toString() || ''
   });
   const [attributes, setAttributes] = useState<{ key: string; value: string }[]>([]);
   const [clients, setClients] = useState<any[]>([]);

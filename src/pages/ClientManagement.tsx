@@ -3,6 +3,7 @@ import { Users, Plus, Search, Trash2, Edit2, X, Folder, Palette, Package, ArrowL
 import { fetchApi } from '../services/api';
 import { toast } from 'sonner';
 import { cn, formatDate } from '../lib/utils';
+import EquipmentList from './EquipmentList';
 
 interface Client {
   id: number;
@@ -13,23 +14,19 @@ interface Client {
   createdAt: string;
 }
 
-interface Equipment {
-  id: number;
-  codigo: string;
-  tipo: string;
-  local: string;
-  andar: string;
-  status: string;
+interface ClientManagementProps {
+  onSelectEquipment: (id: number) => void;
+  onNewEquipment: (clientId: number) => void;
+  onEditEquipment: (id: number) => void;
 }
 
-const ClientManagement: React.FC = () => {
+const ClientManagement: React.FC<ClientManagementProps> = ({ onSelectEquipment, onNewEquipment, onEditEquipment }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [clientEquipments, setClientEquipments] = useState<Equipment[]>([]);
   const [activeTab, setActiveTab] = useState<'details' | 'inventory'>('details');
   
   const [formData, setFormData] = useState({
@@ -43,12 +40,6 @@ const ClientManagement: React.FC = () => {
     loadClients();
   }, []);
 
-  useEffect(() => {
-    if (selectedClient) {
-      loadClientEquipments(selectedClient.id);
-    }
-  }, [selectedClient]);
-
   const loadClients = async () => {
     setLoading(true);
     try {
@@ -58,16 +49,6 @@ const ClientManagement: React.FC = () => {
       toast.error('Erro ao carregar clientes');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadClientEquipments = async (clientId: number) => {
-    try {
-      const allEquipments = await fetchApi('/api/equipments');
-      const filtered = allEquipments.filter((e: any) => e.clientId === clientId);
-      setClientEquipments(filtered);
-    } catch (err) {
-      console.error('Erro ao carregar equipamentos do cliente');
     }
   };
 
@@ -214,46 +195,13 @@ const ClientManagement: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-widest">Ativos Vinculados ({clientEquipments.length})</h3>
-                </div>
-                
-                <div className="overflow-x-auto border border-[#E5E7EB]">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Código</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Tipo</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Localização</th>
-                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E5E7EB]">
-                      {clientEquipments.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-6 py-12 text-center text-[#9CA3AF] italic text-sm">Nenhum ativo vinculado a este cliente.</td>
-                        </tr>
-                      ) : (
-                        clientEquipments.map(eq => (
-                          <tr key={eq.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 text-sm font-bold text-[#0A192F]">{eq.codigo}</td>
-                            <td className="px-6 py-4 text-sm text-[#4B5563]">{eq.tipo}</td>
-                            <td className="px-6 py-4 text-sm text-[#4B5563]">{eq.local} • {eq.andar}</td>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest",
-                                eq.status === 'OPERACIONAL' ? 'bg-emerald-100 text-emerald-700' :
-                                eq.status === 'MANUTENCAO' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                              )}>
-                                {eq.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <EquipmentList 
+                  clientId={selectedClient.id}
+                  onSelect={onSelectEquipment}
+                  onNew={() => onNewEquipment(selectedClient.id)}
+                  onEdit={onEditEquipment}
+                  onImport={() => {}} // Import not needed here or can be added later
+                />
               </div>
             )}
           </div>

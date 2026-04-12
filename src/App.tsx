@@ -32,6 +32,7 @@ const AppContent: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [preSelectedClientId, setPreSelectedClientId] = useState<number | undefined>();
 
   // Simple state machine for the admin panel
   const renderContent = () => {
@@ -39,7 +40,7 @@ const AppContent: React.FC = () => {
       return <ImportWizard onBack={() => setIsImporting(false)} onSuccess={() => { setIsImporting(false); setActiveTab('equipments'); }} />;
     }
     if (isCreating) {
-      return <EquipmentForm onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('equipments'); }} />;
+      return <EquipmentForm preSelectedClientId={preSelectedClientId} onBack={() => { setIsCreating(false); setPreSelectedClientId(undefined); }} onSuccess={() => { setIsCreating(false); setPreSelectedClientId(undefined); setActiveTab('equipments'); }} />;
     }
     if (editingId) {
       return <EquipmentForm id={editingId} onBack={() => setEditingId(null)} onSuccess={() => { setEditingId(null); setActiveTab('equipments'); }} />;
@@ -55,7 +56,7 @@ const AppContent: React.FC = () => {
       }} />;
       case 'equipments': return <EquipmentList 
         onSelect={setSelectedId} 
-        onNew={() => setIsCreating(true)} 
+        onNew={(cid) => { setPreSelectedClientId(cid); setIsCreating(true); }} 
         onImport={() => setIsImporting(true)}
         onEdit={setEditingId} 
         initialStatus={statusFilter}
@@ -65,7 +66,11 @@ const AppContent: React.FC = () => {
       case 'calendar': return <CalendarView />;
       case 'reports': return <Reports />;
       case 'audit-logs': return user?.role === 'ADMIN' ? <AuditLogs /> : <Dashboard />;
-      case 'clients': return user?.role === 'ADMIN' ? <ClientManagement /> : <Dashboard />;
+      case 'clients': return user?.role === 'ADMIN' ? <ClientManagement 
+        onSelectEquipment={setSelectedId}
+        onNewEquipment={(cid) => { setPreSelectedClientId(cid); setIsCreating(true); }}
+        onEditEquipment={setEditingId}
+      /> : <Dashboard />;
       case 'settings': return user?.role === 'ADMIN' ? <PrintSettings /> : <Dashboard />;
       case 'users': return user?.role === 'ADMIN' ? <UserManagement /> : <Dashboard />;
       default: return <Dashboard />;
