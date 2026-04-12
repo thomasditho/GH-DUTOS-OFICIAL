@@ -567,6 +567,35 @@ async function startServer() {
     res.json(maintenance);
   });
 
+  app.post('/api/maintenances/batch', authenticate, async (req: any, res) => {
+    const { equipmentIds, data, descricao, responsavel, observacao } = req.body;
+    
+    if (!equipmentIds || !Array.isArray(equipmentIds) || equipmentIds.length === 0) {
+      return res.status(400).json({ error: 'Nenhum equipamento selecionado' });
+    }
+
+    try {
+      const maintenanceData = equipmentIds.map(id => ({
+        equipmentId: parseInt(id),
+        data: new Date(data),
+        descricao,
+        responsavel,
+        observacao
+      }));
+
+      await prisma.maintenance.createMany({
+        data: maintenanceData
+      });
+
+      await createLog(req.user.id, 'CREATE_BATCH', 'Maintenance', null, { count: equipmentIds.length, equipmentIds });
+
+      res.json({ success: true, count: equipmentIds.length });
+    } catch (err) {
+      console.error('Batch Maintenance Error:', err);
+      res.status(500).json({ error: 'Erro ao registrar manutenções em lote' });
+    }
+  });
+
   // User Management
   app.get('/api/users', authenticate, checkAdmin, async (req, res) => {
     const users = await prisma.user.findMany({

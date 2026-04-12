@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchApi } from '../services/api';
-import { Plus, Search, Filter, QrCode, Eye, Edit2, ChevronRight, ChevronLeft, Trash2, X, FileSpreadsheet, Printer, CheckSquare, Square, Wind, Wrench, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, QrCode, Eye, Edit2, ChevronRight, ChevronLeft, Trash2, X, FileSpreadsheet, Printer, CheckSquare, Square, Wind, Wrench, AlertTriangle, Save, User, Calendar } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { toast } from 'sonner';
 import { generateBatchLabels } from '../lib/printUtils';
@@ -41,6 +41,14 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [printSettings, setPrintSettings] = useState<any>(null);
+  const [showBatchMaintenanceModal, setShowBatchMaintenanceModal] = useState(false);
+  const [batchMaintenanceForm, setBatchMaintenanceForm] = useState({
+    data: new Date().toISOString().split('T')[0],
+    descricao: '',
+    responsavel: '',
+    observacao: ''
+  });
+  const [batchLoading, setBatchLoading] = useState(false);
 
   useEffect(() => {
     loadEquipments();
@@ -119,6 +127,44 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
     }
   };
 
+  const handleSelectNext15 = () => {
+    const currentSelected = new Set(selectedItems);
+    const visibleIds = filtered.map(e => e.id);
+    
+    // Find items that are not currently selected
+    const unselectedVisible = visibleIds.filter(id => !currentSelected.has(id));
+    
+    // Take the first 15
+    const next15 = unselectedVisible.slice(0, 15);
+    
+    setSelectedItems([...selectedItems, ...next15]);
+    toast.success(`${next15.length} itens adicionados à seleção.`);
+  };
+
+  const handleBatchMaintenance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedItems.length === 0) return;
+
+    setBatchLoading(true);
+    try {
+      await fetchApi('/api/maintenances/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          equipmentIds: selectedItems,
+          ...batchMaintenanceForm
+        })
+      });
+      toast.success(`${selectedItems.length} manutenções registradas com sucesso!`);
+      setShowBatchMaintenanceModal(false);
+      setSelectedItems([]);
+      loadEquipments();
+    } catch (err) {
+      toast.error('Erro ao registrar manutenções em lote');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
   const handleBatchPrint = async () => {
     if (selectedItems.length === 0) return;
     
@@ -148,15 +194,6 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
           <p className="text-[#6B7280] text-xs font-bold uppercase tracking-widest mt-1">Gestão de equipamentos e infraestrutura</p>
         </div>
         <div className="flex flex-wrap gap-4">
-          {selectedItems.length > 0 && (
-            <button 
-              onClick={handleBatchPrint}
-              className="px-8 py-4 bg-[#3A8D8F] text-white flex items-center justify-center gap-3 font-bold text-xs uppercase tracking-[0.2em] hover:bg-[#2d6e70] transition-all shadow-xl border-b-4 border-[#0A192F]"
-            >
-              <Printer size={18} />
-              Imprimir Selecionados ({selectedItems.length})
-            </button>
-          )}
           <button 
             onClick={onImport}
             className="px-8 py-4 border-2 border-[#0A192F] text-[#0A192F] flex items-center justify-center gap-3 font-bold text-xs uppercase tracking-[0.2em] hover:bg-slate-50 transition-all shadow-lg"
@@ -351,6 +388,123 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
           </div>
         </div>
       </div>
+
+      {selectedItems.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] bg-[#0A192F] text-white px-8 py-4 flex items-center gap-8 shadow-2xl border-b-4 border-[#3A8D8F] animate-in slide-in-from-bottom-8 duration-300">
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#3A8D8F]">
+              {selectedItems.length} Selecionados
+            </span>
+            <div className="h-4 w-px bg-white/20" />
+            <button 
+              onClick={handleBatchPrint}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-[#3A8D8F] transition-colors"
+            >
+              <Printer size={14} /> Imprimir Etiquetas
+            </button>
+            <button 
+              onClick={() => setShowBatchMaintenanceModal(true)}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-[#3A8D8F] transition-colors"
+            >
+              <Wrench size={14} /> Registrar Manutenção
+            </button>
+          </div>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleSelectNext15}
+              className="px-4 py-2 border border-white/20 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+            >
+              Selecionar Próximos 15
+            </button>
+            <button 
+              onClick={() => setSelectedItems([])}
+              className="text-[10px] font-black uppercase tracking-widest hover:underline"
+            >
+              Desmarcar Tudo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Maintenance Modal */}
+      {showBatchMaintenanceModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0A192F]/80 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg shadow-2xl">
+            <div className="p-6 border-b border-[#E5E7EB] flex items-center justify-between bg-[#F9FAFB]">
+              <div>
+                <h3 className="text-lg font-black text-[#0A192F] uppercase tracking-tight">Manutenção em Lote</h3>
+                <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest mt-1">Registrando para {selectedItems.length} ativos</p>
+              </div>
+              <button onClick={() => setShowBatchMaintenanceModal(false)} className="text-[#9CA3AF] hover:text-[#0A192F]">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleBatchMaintenance} className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Data da Intervenção</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={14} />
+                    <input 
+                      type="date" required
+                      className="w-full pl-10 pr-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold focus:border-[#0A192F] outline-none"
+                      value={batchMaintenanceForm.data}
+                      onChange={e => setBatchMaintenanceForm({...batchMaintenanceForm, data: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Responsável Técnico</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={14} />
+                    <input 
+                      type="text" required placeholder="NOME DO TÉCNICO"
+                      className="w-full pl-10 pr-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase focus:border-[#0A192F] outline-none"
+                      value={batchMaintenanceForm.responsavel}
+                      onChange={e => setBatchMaintenanceForm({...batchMaintenanceForm, responsavel: e.target.value.toUpperCase()})}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Descrição do Serviço</label>
+                <textarea 
+                  required rows={4} placeholder="DESCREVA O SERVIÇO REALIZADO EM TODOS OS ATIVOS SELECIONADOS..."
+                  className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase focus:border-[#0A192F] outline-none resize-none"
+                  value={batchMaintenanceForm.descricao}
+                  onChange={e => setBatchMaintenanceForm({...batchMaintenanceForm, descricao: e.target.value.toUpperCase()})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Observações (Opcional)</label>
+                <textarea 
+                  rows={2} placeholder="OBSERVAÇÕES ADICIONAIS..."
+                  className="w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-bold uppercase focus:border-[#0A192F] outline-none resize-none"
+                  value={batchMaintenanceForm.observacao}
+                  onChange={e => setBatchMaintenanceForm({...batchMaintenanceForm, observacao: e.target.value.toUpperCase()})}
+                />
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowBatchMaintenanceModal(false)}
+                  className="flex-1 py-4 border-2 border-[#E5E7EB] text-[#4B5563] font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={batchLoading}
+                  className="flex-1 py-4 bg-[#0A192F] text-white font-black text-xs uppercase tracking-[0.2em] hover:bg-[#112240] flex items-center justify-center gap-3 shadow-xl disabled:opacity-50 border-b-4 border-[#3A8D8F] transition-all"
+                >
+                  <Save size={18} />
+                  {batchLoading ? 'PROCESSANDO...' : 'REGISTRAR EM LOTE'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
