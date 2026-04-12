@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
+import { fetchApi } from '../services/api';
 
 interface LogoProps {
   className?: string;
@@ -9,6 +10,15 @@ interface LogoProps {
 
 const Logo: React.FC<LogoProps> = ({ className, variant = 'dark', size = 'md' }) => {
   const isDark = variant === 'dark';
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchApi('/api/settings/print')
+      .then(settings => {
+        if (settings?.logoUrl) setLogoUrl(settings.logoUrl);
+      })
+      .catch(() => {});
+  }, []);
   
   const sizeClasses = {
     sm: 'text-lg',
@@ -21,6 +31,22 @@ const Logo: React.FC<LogoProps> = ({ className, variant = 'dark', size = 'md' })
     md: 'h-1 mb-1',
     lg: 'h-1.5 mb-1.5',
   };
+
+  if (logoUrl) {
+    return (
+      <div className={cn("flex items-center", className)}>
+        <img 
+          src={logoUrl} 
+          alt="Logo" 
+          className={cn(
+            "object-contain",
+            size === 'sm' ? 'h-8' : size === 'md' ? 'h-12' : 'h-20',
+            !isDark && "brightness-0 invert"
+          )} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col items-start font-sans", className)}>

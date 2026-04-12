@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchApi } from '../services/api';
-import { Package, History, Info, FileText, User, Clock, ShieldCheck } from 'lucide-react';
+import { Package, History, Info, FileText, User, Clock, ShieldCheck, ThermometerSnowflake, Wind, CheckCircle2, Wrench, AlertTriangle } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 
 const PublicEquipment: React.FC = () => {
   const { publicId } = useParams<{ publicId: string }>();
   const [equipment, setEquipment] = useState<any>(null);
+  const [printSettings, setPrintSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/public/equipment/${publicId}`)
-      .then(res => {
+    Promise.all([
+      fetch(`/api/public/equipment/${publicId}`).then(res => {
         if (!res.ok) throw new Error();
         return res.json();
+      }),
+      fetchApi('/api/settings/print').catch(() => null)
+    ])
+      .then(([eq, settings]) => {
+        setEquipment(eq);
+        setPrintSettings(settings);
       })
-      .then(setEquipment)
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [publicId]);
@@ -42,11 +48,17 @@ const PublicEquipment: React.FC = () => {
       <header className="bg-[#0A192F] text-white p-6 sticky top-0 z-10 shadow-2xl border-b-4 border-[#3A8D8F]">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white flex items-center justify-center text-[#0A192F] font-black text-xl shadow-inner">GH</div>
-            <div>
-              <h1 className="text-xl font-black tracking-tighter leading-none uppercase">DUTOS</h1>
-              <p className="text-[9px] text-white/60 uppercase tracking-[0.3em] font-bold mt-1">Engenharia & Manutenção</p>
-            </div>
+            {printSettings?.logoUrl ? (
+              <img src={printSettings.logoUrl} alt="Logo" className="h-10 object-contain brightness-0 invert" />
+            ) : (
+              <>
+                <div className="w-10 h-10 bg-white flex items-center justify-center text-[#0A192F] font-black text-xl shadow-inner">GH</div>
+                <div>
+                  <h1 className="text-xl font-black tracking-tighter leading-none uppercase">DUTOS</h1>
+                  <p className="text-[9px] text-white/60 uppercase tracking-[0.3em] font-bold mt-1">Engenharia & Manutenção</p>
+                </div>
+              </>
+            )}
           </div>
           <div className="hidden sm:flex items-center gap-2 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border border-white/10">
             <ShieldCheck size={14} className="text-emerald-400" />
@@ -68,12 +80,23 @@ const PublicEquipment: React.FC = () => {
                   <span className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.3em] mb-1 block">Identificação do Ativo</span>
                   <h2 className="text-4xl font-black text-[#0A192F] tracking-tighter uppercase leading-none">{equipment.codigo}</h2>
                 </div>
-                <div className={cn(
-                  "px-4 py-2 text-xs font-black uppercase tracking-[0.2em] shadow-sm border-b-2",
-                  equipment.status === 'OPERACIONAL' ? 'bg-emerald-50 text-emerald-700 border-emerald-500' :
-                  equipment.status === 'MANUTENCAO' ? 'bg-amber-50 text-amber-700 border-amber-500' : 'bg-red-50 text-red-700 border-red-500'
-                )}>
-                  {equipment.status}
+                <div className="flex items-center gap-2">
+                  {equipment.status === 'OPERACIONAL' ? (
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <Wind size={20} className="animate-pulse" />
+                      <span className="text-sm font-black uppercase tracking-[0.2em]">Operacional</span>
+                    </div>
+                  ) : equipment.status === 'MANUTENCAO' ? (
+                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1 border border-amber-200">
+                      <Wrench size={16} />
+                      <span className="text-xs font-black uppercase tracking-[0.2em]">Em Manutenção</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1 border border-red-200">
+                      <AlertTriangle size={16} />
+                      <span className="text-xs font-black uppercase tracking-[0.2em]">{equipment.status}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, QrCode, History, Info, Plus, Download, FileText, User, Calendar, AlertCircle, Clock } from 'lucide-react';
+import { ArrowLeft, QrCode, History, Info, Plus, Download, FileText, User, Calendar, AlertCircle, Clock, Wind, Wrench, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { cn, formatDate } from '../lib/utils';
 import { generateBatchLabels, generateTestReport } from '../lib/printUtils';
@@ -107,13 +107,22 @@ const EquipmentDetail: React.FC<EquipmentDetailProps> = ({ id, onBack, onEdit })
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-black text-[#0A192F] tracking-tighter uppercase">{equipment.codigo}</h2>
-              <span className={cn(
-                "px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                equipment.status === 'OPERACIONAL' ? 'bg-emerald-100 text-emerald-700' :
-                equipment.status === 'MANUTENCAO' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-              )}>
-                {equipment.status}
-              </span>
+              {equipment.status === 'OPERACIONAL' ? (
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <Wind size={18} className="animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Operacional</span>
+                </div>
+              ) : equipment.status === 'MANUTENCAO' ? (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-2 py-0.5 border border-amber-200">
+                  <Wrench size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Em Manutenção</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-red-600 bg-red-50 px-2 py-0.5 border border-red-200">
+                  <AlertTriangle size={14} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{equipment.status}</span>
+                </div>
+              )}
             </div>
             <p className="text-[#6B7280] text-xs font-bold uppercase tracking-widest mt-1">{equipment.tipo} • {equipment.local} ({equipment.andar})</p>
           </div>

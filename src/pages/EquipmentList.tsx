@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchApi } from '../services/api';
-import { Plus, Search, Filter, QrCode, Eye, Edit2, ChevronRight, ChevronLeft, Trash2, X, FileSpreadsheet, Printer, CheckSquare, Square } from 'lucide-react';
+import { Plus, Search, Filter, QrCode, Eye, Edit2, ChevronRight, ChevronLeft, Trash2, X, FileSpreadsheet, Printer, CheckSquare, Square, Wind, Wrench, AlertTriangle } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { toast } from 'sonner';
 import { generateBatchLabels } from '../lib/printUtils';
@@ -290,9 +290,22 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
                     <div className="text-[10px] text-[#9CA3AF] uppercase font-bold">{e.andar}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={cn("px-2 py-1 text-[10px] font-bold uppercase tracking-wider", getStatusColor(e.status))}>
-                      {e.status}
-                    </span>
+                    {e.status === 'OPERACIONAL' ? (
+                      <div className="flex items-center gap-2 text-emerald-600">
+                        <Wind size={14} className="animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Operacional</span>
+                      </div>
+                    ) : e.status === 'MANUTENCAO' ? (
+                      <div className="flex items-center gap-2 text-amber-600">
+                        <Wrench size={12} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Manutenção</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-600">
+                        <AlertTriangle size={12} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">{e.status}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-[#6B7280]">{formatDate(e.createdAt)}</td>
                   <td className="px-6 py-4 text-right">
