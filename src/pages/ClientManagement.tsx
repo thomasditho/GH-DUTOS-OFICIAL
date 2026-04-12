@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Search, Trash2, Edit2, X, Folder, Palette } from 'lucide-react';
+import { Users, Plus, Search, Trash2, Edit2, X, Folder, Palette, Package, ArrowLeft, Eye } from 'lucide-react';
 import { fetchApi } from '../services/api';
 import { toast } from 'sonner';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 
 interface Client {
   id: number;
@@ -13,12 +13,24 @@ interface Client {
   createdAt: string;
 }
 
+interface Equipment {
+  id: number;
+  codigo: string;
+  tipo: string;
+  local: string;
+  andar: string;
+  status: string;
+}
+
 const ClientManagement: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientEquipments, setClientEquipments] = useState<Equipment[]>([]);
+  const [activeTab, setActiveTab] = useState<'details' | 'inventory'>('details');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +43,12 @@ const ClientManagement: React.FC = () => {
     loadClients();
   }, []);
 
+  useEffect(() => {
+    if (selectedClient) {
+      loadClientEquipments(selectedClient.id);
+    }
+  }, [selectedClient]);
+
   const loadClients = async () => {
     setLoading(true);
     try {
@@ -40,6 +58,16 @@ const ClientManagement: React.FC = () => {
       toast.error('Erro ao carregar clientes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClientEquipments = async (clientId: number) => {
+    try {
+      const allEquipments = await fetchApi('/api/equipments');
+      const filtered = allEquipments.filter((e: any) => e.clientId === clientId);
+      setClientEquipments(filtered);
+    } catch (err) {
+      console.error('Erro ao carregar equipamentos do cliente');
     }
   };
 
@@ -98,6 +126,141 @@ const ClientManagement: React.FC = () => {
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.slug.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (selectedClient) {
+    return (
+      <div className="space-y-6">
+        <header className="flex items-center gap-4">
+          <button 
+            onClick={() => setSelectedClient(null)}
+            className="p-2 hover:bg-slate-100 transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center text-white" style={{ backgroundColor: selectedClient.color }}>
+                <Folder size={16} />
+              </div>
+              <h2 className="text-2xl font-black text-[#0A192F] tracking-tighter uppercase">{selectedClient.name}</h2>
+            </div>
+            <p className="text-[#6B7280] text-[10px] font-bold uppercase tracking-widest mt-1">Pasta: {selectedClient.slug}</p>
+          </div>
+        </header>
+
+        <div className="bg-white border border-[#E5E7EB] shadow-sm">
+          <div className="flex border-b border-[#E5E7EB]">
+            <button 
+              onClick={() => setActiveTab('details')}
+              className={cn(
+                "px-8 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all",
+                activeTab === 'details' ? "border-[#0A192F] text-[#0A192F] bg-slate-50" : "border-transparent text-[#9CA3AF] hover:text-[#4B5563]"
+              )}
+            >
+              Dados do Cliente
+            </button>
+            <button 
+              onClick={() => setActiveTab('inventory')}
+              className={cn(
+                "px-8 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2",
+                activeTab === 'inventory' ? "border-[#0A192F] text-[#0A192F] bg-slate-50" : "border-transparent text-[#9CA3AF] hover:text-[#4B5563]"
+              )}
+            >
+              <Package size={14} />
+              Inventário de Ativos
+            </button>
+          </div>
+
+          <div className="p-8">
+            {activeTab === 'details' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Nome Oficial</p>
+                    <p className="text-lg font-bold text-[#0A192F] uppercase">{selectedClient.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Identificador Único</p>
+                    <code className="text-sm font-mono font-bold text-[#3A8D8F]">{selectedClient.slug}</code>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Cor de Identificação</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 border border-[#E5E7EB]" style={{ backgroundColor: selectedClient.color }} />
+                      <span className="text-sm font-mono font-bold text-[#4B5563]">{selectedClient.color.toUpperCase()}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-2">Logotipo do Cliente</p>
+                    {selectedClient.logoUrl ? (
+                      <div className="p-8 border-2 border-dashed border-[#E5E7EB] bg-[#F9FAFB] flex items-center justify-center">
+                        <img src={selectedClient.logoUrl} alt="Logo" className="max-h-32 object-contain" />
+                      </div>
+                    ) : (
+                      <div className="p-12 border-2 border-dashed border-[#E5E7EB] bg-[#F9FAFB] text-center">
+                        <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-widest">Nenhuma logo cadastrada</p>
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => openEdit(selectedClient)}
+                    className="w-full py-4 border-2 border-[#0A192F] text-[#0A192F] font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  >
+                    Editar Informações
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-widest">Ativos Vinculados ({clientEquipments.length})</h3>
+                </div>
+                
+                <div className="overflow-x-auto border border-[#E5E7EB]">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Código</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Tipo</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Localização</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E5E7EB]">
+                      {clientEquipments.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-[#9CA3AF] italic text-sm">Nenhum ativo vinculado a este cliente.</td>
+                        </tr>
+                      ) : (
+                        clientEquipments.map(eq => (
+                          <tr key={eq.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 text-sm font-bold text-[#0A192F]">{eq.codigo}</td>
+                            <td className="px-6 py-4 text-sm text-[#4B5563]">{eq.tipo}</td>
+                            <td className="px-6 py-4 text-sm text-[#4B5563]">{eq.local} • {eq.andar}</td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest",
+                                eq.status === 'OPERACIONAL' ? 'bg-emerald-100 text-emerald-700' :
+                                eq.status === 'MANUTENCAO' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                              )}>
+                                {eq.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -176,6 +339,13 @@ const ClientManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setSelectedClient(client)}
+                          className="p-2 text-[#4B5563] hover:bg-[#3A8D8F] hover:text-white transition-all"
+                          title="Ver Inventário"
+                        >
+                          <Eye size={16} />
+                        </button>
                         <button 
                           onClick={() => openEdit(client)}
                           className="p-2 text-[#4B5563] hover:bg-[#0A192F] hover:text-white transition-all"
