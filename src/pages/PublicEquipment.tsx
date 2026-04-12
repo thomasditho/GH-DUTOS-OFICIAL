@@ -71,8 +71,8 @@ const PublicEquipment: React.FC = () => {
         {/* Main Card */}
         <section className="bg-white shadow-2xl border-t-8 border-[#0A192F] overflow-hidden">
           <div className="p-8 border-b border-[#E5E7EB] bg-[#F9FAFB] relative">
-            <div className="absolute top-0 right-0 p-4 opacity-5">
-              <Package size={120} />
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <Wind size={160} />
             </div>
             <div className="relative z-10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
