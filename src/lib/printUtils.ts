@@ -91,17 +91,6 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
     return truncated + '...';
   };
 
-  // Helper to calculate font size that fits within a width
-  doc.getFitFontSize = (text: string, maxWidth: number, startFontSize: number) => {
-    let fontSize = startFontSize;
-    doc.setFontSize(fontSize);
-    while (fontSize > 4 && (doc.getStringUnitWidth(text) * fontSize / doc.internal.scaleFactor) > maxWidth) {
-      fontSize -= 0.5;
-      doc.setFontSize(fontSize);
-    }
-    return fontSize;
-  };
-
   const primaryColor = settings?.reportPrimaryColor || '#0A192F';
   const hexToRgb = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -161,9 +150,7 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
       // Asset Code in Middle
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
       doc.setFont('helvetica', 'bold');
-      const maxCodeWidth = drawWidth * 0.8;
-      const codeFontSize = doc.getFitFontSize(item.codigo, maxCodeWidth, drawHeight * 0.28);
-      doc.setFontSize(codeFontSize);
+      doc.setFontSize(drawHeight * 0.28);
       doc.text(item.codigo, x + drawWidth / 2, y + drawHeight * 0.48, { align: 'center' });
       
       // Horizontal Line
@@ -224,18 +211,18 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
 
       // QR Code
       try {
-        const qrSize = drawHeight * 0.65; // Increased size
-        const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 400 });
-        doc.addImage(qrDataUrl, 'PNG', x + 2, y + 10, qrSize, qrSize);
+        const qrSize = drawHeight * 0.55;
+        const qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 200 });
+        doc.addImage(qrDataUrl, 'PNG', x + 4, y + 11, qrSize, qrSize);
       } catch (err) {
         console.error('QR Error', err);
       }
 
       // Content Section
       doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      const contentX = x + (drawWidth * 0.45); // Adjusted for larger QR
-      const maxTextWidth = drawWidth * 0.5; 
-      let textY = y + 14;
+      const contentX = x + (drawWidth * 0.42);
+      const maxTextWidth = drawWidth * 0.52; // Prevent overlap with right-aligned footer
+      let textY = y + 15;
 
       if (settings.labelShowCode !== false) {
         doc.setFontSize(5);
@@ -243,9 +230,7 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('CÓDIGO', contentX, textY);
         textY += 4;
-        
-        const codeFontSize = doc.getFitFontSize(item.codigo, maxTextWidth, 10);
-        doc.setFontSize(codeFontSize);
+        doc.setFontSize(9);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
         doc.text(item.codigo, contentX, textY);
         textY += 6;
@@ -257,11 +242,10 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('EQUIPAMENTO', contentX, textY);
         textY += 3.5;
-        
-        const typeFontSize = doc.getFitFontSize(item.tipo, maxTextWidth, 7);
-        doc.setFontSize(typeFontSize);
+        doc.setFontSize(7);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.text(item.tipo, contentX, textY);
+        const tipo = doc.truncateText(item.tipo, maxTextWidth);
+        doc.text(tipo, contentX, textY);
         textY += 5.5;
       }
 
@@ -271,11 +255,11 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
         doc.setTextColor(150, 150, 150);
         doc.text('LOCALIZAÇÃO', contentX, textY);
         textY += 3.5;
-        
-        const localFontSize = doc.getFitFontSize(item.local, maxTextWidth, 7);
-        doc.setFontSize(localFontSize);
+        doc.setFontSize(7);
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-        doc.text(item.local, contentX, textY);
+        const local = item.local;
+        const localTrunc = doc.truncateText(local, maxTextWidth);
+        doc.text(localTrunc, contentX, textY);
       }
 
       // Footer
