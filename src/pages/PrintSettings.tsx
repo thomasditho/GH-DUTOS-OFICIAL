@@ -4,7 +4,7 @@ import { Settings, FileText, Printer, Save, Upload, Eye, Palette, Layout as Layo
 import { fetchApi } from '../services/api';
 import { toast } from 'sonner';
 import { QRCodeCanvas } from 'qrcode.react';
-import { generateBatchLabels, generateTestReport } from '../lib/printUtils';
+import { generateTestReport, generateBatchLabels } from '../lib/printUtils';
 
 const PrintSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'report' | 'label'>('report');
@@ -19,6 +19,7 @@ const PrintSettings: React.FC = () => {
     labelShowLocal: true,
     labelShowType: true,
     labelPhone: '(11) 3208-1276',
+    labelQrSize: 40,
     labelTemplate: 'modern'
   });
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ const PrintSettings: React.FC = () => {
     toast.success('Relatório de teste gerado!');
   };
 
-  const handleDownloadTestLabel = () => {
+  const handleDownloadTestLabel = async () => {
     const testItem = {
       codigo: 'AC-001',
       tipo: 'CHILLER CARRIER',
@@ -37,8 +38,15 @@ const PrintSettings: React.FC = () => {
       andar: '2º ANDAR',
       publicId: 'test-id'
     };
-    generateBatchLabels([testItem], settings);
-    toast.success('Etiqueta de teste gerada!');
+    
+    try {
+      toast.info('Gerando etiqueta de teste...');
+      await generateBatchLabels([testItem as any], settings);
+      toast.success('Etiqueta de teste gerada com sucesso!');
+    } catch (error) {
+      console.error('Error generating test label:', error);
+      toast.error('Erro ao gerar etiqueta. Verifique as dimensões.');
+    }
   };
 
   useEffect(() => {
@@ -46,7 +54,8 @@ const PrintSettings: React.FC = () => {
       .then(data => {
         setSettings({
           ...data,
-          labelPhone: data.labelPhone || ''
+          labelPhone: data.labelPhone || '',
+          labelQrSize: data.labelQrSize || 40
         });
         setLoading(false);
       })
@@ -315,41 +324,10 @@ const PrintSettings: React.FC = () => {
             ) : (
               <>
                 <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Modelo da Etiqueta</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => setSettings({ ...settings, labelTemplate: 'modern' })}
-                      className={`p-4 border-2 transition-all text-left ${settings.labelTemplate === 'modern' ? 'border-[#0A192F] bg-[#F9FAFB]' : 'border-[#E5E7EB] hover:border-[#9CA3AF]'}`}
-                    >
-                      <div className="w-full aspect-video bg-[#0A192F] mb-3 flex flex-col">
-                        <div className="h-1 bg-[#10B981] w-full" />
-                        <div className="flex-1 flex items-center justify-center">
-                          <div className="w-8 h-8 bg-white/20 rounded-sm" />
-                        </div>
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Modelo Moderno</p>
-                      <p className="text-[9px] text-[#6B7280] mt-1">Layout GH DUTOS atualizado</p>
-                    </button>
-                    <button
-                      onClick={() => setSettings({ ...settings, labelTemplate: 'classic' })}
-                      className={`p-4 border-2 transition-all text-left ${settings.labelTemplate === 'classic' ? 'border-[#0A192F] bg-[#F9FAFB]' : 'border-[#E5E7EB] hover:border-[#9CA3AF]'}`}
-                    >
-                      <div className="w-full aspect-video bg-white mb-3 flex flex-col items-center justify-center border border-[#E5E7EB]">
-                        <div className="w-6 h-6 border border-[#0A192F] mb-1" />
-                        <div className="w-10 h-1 bg-[#0A192F] mb-1" />
-                        <div className="w-6 h-6 border border-[#0A192F]" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Modelo Clássico</p>
-                      <p className="text-[9px] text-[#6B7280] mt-1">Layout original (Excel)</p>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Dimensões da Etiqueta</h3>
                   <div className="p-4 bg-emerald-50 border-l-4 border-emerald-500 mb-4">
-                    <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-widest">Padrão GH DUTOS:</p>
-                    <p className="text-[11px] text-emerald-700 mt-1">O sistema está otimizado para etiquetas de 80x40mm em um grid de 3x5 por página A4 na impressão em lote.</p>
+                    <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-widest">Layout Inteligente:</p>
+                    <p className="text-[11px] text-emerald-700 mt-1">O QR Code e a Logo se ajustam proporcionalmente ao tamanho da etiqueta.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -370,6 +348,25 @@ const PrintSettings: React.FC = () => {
                         className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E7EB] text-sm font-medium focus:border-[#0A192F] outline-none transition-all"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9CA3AF]">Ajuste do QR Code</h3>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">Escala do QR Code (%)</label>
+                      <span className="text-[10px] font-black text-[#0A192F]">{settings.labelQrSize}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="15"
+                      max="50"
+                      value={settings.labelQrSize || 40}
+                      onChange={(e) => setSettings({ ...settings, labelQrSize: parseInt(e.target.value) })}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0A192F]"
+                    />
+                    <p className="text-[9px] text-[#9CA3AF] mt-2 uppercase font-bold tracking-widest">Limite de 50% para garantir espaço da logo e textos.</p>
                   </div>
                 </div>
 
@@ -410,30 +407,6 @@ const PrintSettings: React.FC = () => {
                         onChange={(e) => setSettings({ ...settings, labelShowCode: e.target.checked })}
                       />
                       <span className="text-xs font-bold text-[#4B5563] uppercase tracking-widest">Mostrar Código do Ativo</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${settings.labelShowLocal ? 'bg-[#0A192F] border-[#0A192F]' : 'border-[#E5E7EB]'}`}>
-                        {settings.labelShowLocal && <div className="w-2 h-2 bg-white" />}
-                      </div>
-                      <input 
-                        type="checkbox" 
-                        className="hidden" 
-                        checked={settings.labelShowLocal}
-                        onChange={(e) => setSettings({ ...settings, labelShowLocal: e.target.checked })}
-                      />
-                      <span className="text-xs font-bold text-[#4B5563] uppercase tracking-widest">Mostrar Localização</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-5 h-5 border-2 flex items-center justify-center transition-all ${settings.labelShowType ? 'bg-[#0A192F] border-[#0A192F]' : 'border-[#E5E7EB]'}`}>
-                        {settings.labelShowType && <div className="w-2 h-2 bg-white" />}
-                      </div>
-                      <input 
-                        type="checkbox" 
-                        className="hidden" 
-                        checked={settings.labelShowType}
-                        onChange={(e) => setSettings({ ...settings, labelShowType: e.target.checked })}
-                      />
-                      <span className="text-xs font-bold text-[#4B5563] uppercase tracking-widest">Mostrar Tipo de Equipamento</span>
                     </label>
                   </div>
                 </div>
@@ -480,110 +453,48 @@ const PrintSettings: React.FC = () => {
             ) : (
               <div className="w-full h-full flex items-center justify-center p-4">
                 <div 
-                  className="bg-white shadow-2xl border border-[#E5E7EB] flex flex-col overflow-hidden relative origin-center transition-all duration-300"
+                  className="bg-white shadow-2xl border border-[#E5E7EB] flex flex-col items-center overflow-hidden relative origin-center transition-all duration-300"
                   style={{ 
                     width: `${(Number(settings.labelWidth) || 80) * 4}px`, 
                     height: `${(Number(settings.labelHeight) || 40) * 4}px`,
                     transform: `scale(${Math.min(1, 450 / ((Number(settings.labelWidth) || 80) * 4), 400 / ((Number(settings.labelHeight) || 40) * 4))})`,
                   }}
                 >
-                  {settings.labelTemplate === 'modern' ? (
-                    <div className="w-full h-full flex flex-col p-[4%]">
-                      <div className="w-full h-full flex flex-col border border-slate-100 rounded-sm overflow-hidden shadow-sm bg-white">
-                        {/* Green Accent Bar */}
-                        <div className="h-[2%] bg-[#10B981] w-full" />
-
-                        <div className="bg-[#0A192F] h-[15%] px-4 flex items-center justify-between">
-                          {settings.logoUrl ? (
-                            <img src={settings.logoUrl} alt="Logo" className="h-[70%] object-contain brightness-0 invert" />
-                          ) : (
-                            <span className="text-white font-black text-[10px] tracking-[0.2em] uppercase">GH DUTOS</span>
-                          )}
-                          <span className="text-white/40 text-[6px] font-bold uppercase tracking-widest">ID: AC-001</span>
-                        </div>
-                        
-                        <div className="flex-1 p-4 flex items-center gap-4 min-h-0">
-                          {/* QR Code Section */}
-                          <div className="p-1 border border-[#0A192F] bg-white flex-shrink-0">
-                            <QRCodeCanvas 
-                              value="https://ghdutos.com.br/asset/AC-001" 
-                              size={Math.min((Number(settings.labelHeight) || 40) * 1.8, (Number(settings.labelWidth) || 80) * 1.3, 90)}
-                              level="H"
-                              includeMargin={false}
-                            />
-                          </div>
-                          
-                          {/* Data Section */}
-                          <div className="flex-1 flex flex-col justify-center space-y-1 border-l border-[#E5E7EB] pl-4 min-w-0">
-                            {settings.labelShowCode && (
-                              <div className="flex flex-col">
-                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Código</span>
-                                <p className="text-sm font-black text-[#0A192F] uppercase tracking-tighter leading-none truncate">AC-001</p>
-                              </div>
-                            )}
-                            {settings.labelShowType && (
-                              <div className="flex flex-col">
-                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Equipamento</span>
-                                <p className="text-[9px] font-bold text-[#4B5563] uppercase leading-tight truncate">CHILLER CARRIER</p>
-                              </div>
-                            )}
-                            {settings.labelShowLocal && (
-                              <div className="flex flex-col">
-                                <span className="text-[7px] font-black text-[#9CA3AF] uppercase tracking-widest">Localização</span>
-                                <p className="text-[9px] font-bold text-[#6B7280] uppercase leading-tight truncate">SALA TÉCNICA - 2º ANDAR</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Label Footer */}
-                        <div className="border-t border-[#F3F4F6] h-[15%] px-4 flex justify-between items-center bg-[#F9FAFB] mt-auto">
-                          <div className="flex flex-col">
-                            <span className="text-[6px] font-bold text-[#9CA3AF] uppercase tracking-widest">ghdutos.com.br</span>
-                            <span className="text-[6px] font-black text-[#0A192F]">{settings.labelPhone || '(00) 0000-0000'}</span>
-                          </div>
-                          <span className="text-[6px] font-black text-[#0A192F] uppercase tracking-tighter">ENGENHARIA E MANUTENÇÃO</span>
-                        </div>
-                      </div>
+                  <div className="w-full h-full flex flex-col items-center p-[5%]">
+                    {/* 1. QR Code at Top */}
+                    <div className="flex items-center justify-center mb-2" style={{ height: `${settings.labelQrSize || 40}%` }}>
+                      <QRCodeCanvas 
+                        value="https://ghdutos.com.br/asset/AC-001" 
+                        size={((Number(settings.labelHeight) || 40) * 4) * ((settings.labelQrSize || 40) / 100)}
+                        level="H"
+                        includeMargin={false}
+                      />
                     </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-between p-[8%] bg-white">
-                      {/* QR Code at Top */}
-                      <div className="h-[30%] flex items-center justify-center">
-                        <QRCodeCanvas 
-                          value="https://ghdutos.com.br/asset/AC-001" 
-                          size={Math.min((Number(settings.labelHeight) || 40) * 1.4, 75)}
-                          level="H"
-                          includeMargin={false}
-                        />
-                      </div>
 
-                      {/* Asset Code in Middle */}
-                      <div className="w-full text-center space-y-1">
-                        <p className="text-2xl font-black text-[#0A192F] tracking-tight">AC-001</p>
-                        <div className="h-[2px] bg-[#0A192F] w-3/4 mx-auto" />
-                      </div>
-
-                      {/* Logo at Bottom - Full Width focus */}
-                      <div className="w-full h-[32%] flex flex-col items-center justify-center px-4 py-1 min-h-0">
-                        {settings.logoUrl ? (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
-                              <span className="text-sm font-black -rotate-45">GH</span>
-                            </div>
-                            <div className="flex flex-col items-start">
-                              <span className="text-[10px] font-black text-[#0A192F] leading-none">GH INSTALAÇÃO</span>
-                              <span className="text-[10px] font-bold text-[#0A192F]">{settings.labelPhone || '(11) 3208-1276'}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                    {/* 2. Asset Code */}
+                    <div className="text-center mb-1">
+                      <p className="font-black text-[#0A192F] uppercase tracking-tighter" style={{ fontSize: `${Math.max(10, (Number(settings.labelHeight) || 40) * 0.4)}px` }}>
+                        AC-001
+                      </p>
                     </div>
-                  )}
+
+                    {/* 3. Horizontal Line */}
+                    <div className="w-full h-[2px] bg-[#0A192F] mb-2 opacity-80" />
+
+                    {/* 4. Logo at Bottom */}
+                    <div className="flex-1 w-full flex items-center justify-center min-h-0 overflow-hidden">
+                      {settings.logoUrl ? (
+                        <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
+                            <span className="text-[8px] font-black -rotate-45">GH</span>
+                          </div>
+                          <span className="text-[10px] font-black text-[#0A192F] uppercase tracking-widest">GH DUTOS</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

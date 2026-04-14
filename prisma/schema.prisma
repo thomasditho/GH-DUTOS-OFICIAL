@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -81,6 +81,7 @@ model PrintSettings {
   labelShowLocal    Boolean  @default(true)
   labelShowType     Boolean  @default(true)
   labelPhone        String?  @default("(11) 3208-1276")
+  labelQrSize       Int      @default(40)  // % of height
   labelTemplate     String   @default("modern") // modern, classic
   updatedAt         DateTime @updatedAt
 }

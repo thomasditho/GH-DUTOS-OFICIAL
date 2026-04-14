@@ -66,25 +66,23 @@ const EquipmentDetail: React.FC<EquipmentDetailProps> = ({ id, onBack, onEdit })
     }
   };
 
+  const generateReport = () => {
+    if (!printSettings) return;
+    generateTestReport(printSettings);
+    toast.success('Relatório gerado com sucesso!');
+  };
+
   const generateLabel = () => {
-    if (!equipment || !printSettings) return;
-    
-    const labelData = {
+    if (!printSettings || !equipment) return;
+    const itemToPrint = {
       codigo: equipment.codigo,
       tipo: equipment.tipo,
       local: equipment.local,
       andar: equipment.andar,
       publicId: equipment.publicId
     };
-
-    generateBatchLabels([labelData], printSettings);
+    generateBatchLabels([itemToPrint as any], printSettings);
     toast.success('Etiqueta gerada com sucesso!');
-  };
-
-  const generateReport = () => {
-    if (!printSettings) return;
-    generateTestReport(printSettings);
-    toast.success('Relatório gerado com sucesso!');
   };
 
   if (loading || !equipment) return <div className="animate-pulse space-y-8">
@@ -239,9 +237,9 @@ const EquipmentDetail: React.FC<EquipmentDetailProps> = ({ id, onBack, onEdit })
             <p className="text-[10px] text-[#9CA3AF] break-all mb-8 font-mono bg-[#F9FAFB] p-2 border border-[#E5E7EB]">{publicUrl}</p>
             <button 
               onClick={generateLabel}
-              className="w-full py-4 bg-[#0A192F] text-white font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-[#112240] transition-all shadow-xl border-b-4 border-[#3A8D8F]"
+              className="w-full px-6 py-4 bg-white border-2 border-[#0A192F] text-[#0A192F] font-black text-xs uppercase tracking-[0.2em] hover:bg-[#F9FAFB] transition-all flex items-center justify-center gap-3"
             >
-              <Download size={20} />
+              <Download size={18} />
               Gerar Etiqueta PDF
             </button>
           </section>

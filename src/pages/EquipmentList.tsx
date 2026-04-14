@@ -141,6 +141,24 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
     toast.success(`${next15.length} itens adicionados à seleção.`);
   };
 
+  const handleBatchPrint = async () => {
+    if (selectedItems.length === 0) return;
+    
+    const itemsToPrint = equipments
+      .filter(e => selectedItems.includes(e.id))
+      .map(e => ({
+        codigo: e.codigo,
+        tipo: e.tipo,
+        local: e.local,
+        andar: e.andar,
+        publicId: (e as any).publicId || ''
+      }));
+
+    toast.info(`Gerando etiquetas para ${selectedItems.length} ativos...`);
+    await generateBatchLabels(itemsToPrint as any, printSettings);
+    toast.success('Etiquetas geradas com sucesso!');
+  };
+
   const handleBatchMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedItems.length === 0) return;
@@ -163,27 +181,6 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
     } finally {
       setBatchLoading(false);
     }
-  };
-
-  const handleBatchPrint = async () => {
-    if (selectedItems.length === 0) return;
-    
-    const itemsToPrint = equipments
-      .filter(e => selectedItems.includes(e.id))
-      .map(e => ({
-        codigo: e.codigo,
-        tipo: e.tipo,
-        local: e.local,
-        andar: e.andar,
-        publicId: (e as any).publicId || '' // We need publicId for QR
-      }));
-
-    // If publicId is missing, we might need to fetch full data or ensure it's in the list
-    // Let's check if loadEquipments returns publicId
-    
-    toast.info(`Gerando etiquetas para ${selectedItems.length} ativos...`);
-    await generateBatchLabels(itemsToPrint as any, printSettings);
-    toast.success('Etiquetas geradas com sucesso!');
   };
 
   return (
@@ -397,16 +394,17 @@ const EquipmentList: React.FC<EquipmentListProps> = ({ onSelect, onNew, onImport
             </span>
             <div className="h-4 w-px bg-white/20" />
             <button 
-              onClick={handleBatchPrint}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-[#3A8D8F] transition-colors"
-            >
-              <Printer size={14} /> Imprimir Etiquetas
-            </button>
-            <button 
               onClick={() => setShowBatchMaintenanceModal(true)}
               className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-[#3A8D8F] transition-colors"
             >
               <Wrench size={14} /> Registrar Manutenção
+            </button>
+            <div className="h-4 w-px bg-white/20" />
+            <button 
+              onClick={handleBatchPrint}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:text-[#3A8D8F] transition-colors"
+            >
+              <Printer size={14} /> Imprimir Etiquetas
             </button>
           </div>
           <div className="flex items-center gap-4">
