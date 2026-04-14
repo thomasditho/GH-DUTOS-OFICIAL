@@ -8,6 +8,9 @@ import { nanoid } from 'nanoid';
 import multer from 'multer';
 import fs from 'fs';
 import * as XLSX from 'xlsx';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'gh-dutos-secret-2026';
