@@ -100,56 +100,64 @@ export const generateBatchLabels = async (items: LabelData[], settings: PrintSet
       const x = marginX + (col * labelWidth);
       const y = marginY + (row * labelHeight);
 
-      // Draw Label Border (optional, but good for cutting)
-      doc.setDrawColor(230, 230, 230);
-      doc.setLineWidth(0.1);
-      doc.rect(x, y, labelWidth, labelHeight);
+      // Light cutting guide
+      doc.setDrawColor(240, 240, 240);
+      doc.setLineWidth(0.05);
+      doc.rect(x, y, labelWidth, labelHeight, 'S');
 
-      // 1. QR Code at Top
+      // Layout Proporcional (Vertical Segmented)
+      // Top Padding 5%
+      const topPadding = labelHeight * 0.05;
+      
+      // 1. QR Code Area (Top)
       const qrSize = labelHeight * qrScale;
       const qrX = x + (labelWidth - qrSize) / 2;
-      const qrY = y + (labelHeight * 0.05); // 5% padding at top
+      const qrY = y + topPadding;
 
       const publicUrl = `https://ghdutos.com.br/asset/${item.publicId}`;
       const qrDataUrl = await QRCode.toDataURL(publicUrl, { 
         margin: 1,
-        width: 200,
+        width: 300,
         color: { dark: '#0A192F', light: '#FFFFFF' }
       });
       doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-      // 2. Asset Code
-      if (settings.labelShowCode !== false) {
-        const fontSize = Math.max(6, labelHeight * 0.12);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(fontSize);
-        doc.setTextColor(10, 25, 47); // #0A192F
-        doc.text(item.codigo, x + labelWidth / 2, qrY + qrSize + (labelHeight * 0.08), { align: 'center' });
-      }
+      // 2. Asset Code (Middle)
+      const codePadding = labelHeight * 0.03;
+      const codeY = qrY + qrSize + codePadding;
+      const codeFontSize = Math.max(7, labelHeight * 0.15);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(codeFontSize);
+      doc.setTextColor(10, 25, 47); // #0A192F
+      doc.text(item.codigo, x + labelWidth / 2, codeY + (codeFontSize * 0.35), { align: 'center' });
 
-      // 3. Horizontal Line
-      const lineY = qrY + qrSize + (labelHeight * 0.12);
+      // 3. Horizontal Line (Separator)
+      const linePadding = labelHeight * 0.04;
+      const lineY = codeY + (codeFontSize * 0.6) + linePadding;
       doc.setDrawColor(10, 25, 47);
-      doc.setLineWidth(0.3);
-      doc.line(x + (labelWidth * 0.1), lineY, x + (labelWidth * 0.9), lineY);
+      doc.setLineWidth(0.4);
+      doc.line(x + (labelWidth * 0.15), lineY, x + (labelWidth * 0.85), lineY);
 
-      // 4. Logo at Bottom
-      const logoAreaTop = lineY + 1;
-      const logoAreaHeight = labelHeight - (logoAreaTop - y) - (labelHeight * 0.05);
+      // 4. Logo Area (Bottom)
+      const logoPadding = labelHeight * 0.04;
+      const logoAreaTop = lineY + logoPadding;
+      const bottomPadding = labelHeight * 0.05;
+      const logoAreaHeight = (y + labelHeight) - logoAreaTop - bottomPadding;
       
       if (settings.logoUrl) {
         await addImageWithAspectRatio(
           doc, 
           settings.logoUrl, 
-          x + (labelWidth * 0.1), 
+          x + (labelWidth * 0.15), 
           logoAreaTop, 
-          labelWidth * 0.8, 
+          labelWidth * 0.7, 
           logoAreaHeight
         );
       } else {
-        // Fallback text if no logo
-        doc.setFontSize(Math.max(5, labelHeight * 0.08));
-        doc.setFont('helvetica', 'bold');
+        // Fallback
+        doc.setFontSize(Math.max(6, labelHeight * 0.1));
+        doc.setTextColor(150, 150, 150);
         doc.text('GH DUTOS', x + labelWidth / 2, logoAreaTop + (logoAreaHeight / 2), { align: 'center' });
       }
     }

@@ -107,11 +107,11 @@ async function startServer() {
   app.post('/api/settings/print', authenticate, async (req, res) => {
     if (req.user?.role !== 'ADMIN') return res.status(403).json({ error: 'Acesso negado' });
     try {
-      const data = req.body;
+      const { id, updatedAt, ...saveData } = req.body;
       const settings = await prisma.printSettings.upsert({
         where: { id: 1 },
-        update: data,
-        create: { ...data, id: 1 }
+        update: saveData,
+        create: { ...saveData, id: 1 }
       });
       res.json(settings);
     } catch (err) {

@@ -461,8 +461,11 @@ const PrintSettings: React.FC = () => {
                   }}
                 >
                   <div className="w-full h-full flex flex-col items-center p-[5%]">
-                    {/* 1. QR Code at Top */}
-                    <div className="flex items-center justify-center mb-2" style={{ height: `${settings.labelQrSize || 40}%` }}>
+                    {/* 1. QR Code Area (Top) */}
+                    <div 
+                      className="flex items-center justify-center" 
+                      style={{ height: `${settings.labelQrSize || 40}%` }}
+                    >
                       <QRCodeCanvas 
                         value="https://ghdutos.com.br/asset/AC-001" 
                         size={((Number(settings.labelHeight) || 40) * 4) * ((settings.labelQrSize || 40) / 100)}
@@ -471,22 +474,22 @@ const PrintSettings: React.FC = () => {
                       />
                     </div>
 
-                    {/* 2. Asset Code */}
-                    <div className="text-center mb-1">
-                      <p className="font-black text-[#0A192F] uppercase tracking-tighter" style={{ fontSize: `${Math.max(10, (Number(settings.labelHeight) || 40) * 0.4)}px` }}>
+                    {/* 2. Asset Code (Middle) */}
+                    <div className="text-center" style={{ marginTop: '2%' }}>
+                      <p className="font-black text-[#0A192F] uppercase tracking-tighter" style={{ fontSize: `${Math.max(12, (Number(settings.labelHeight) || 40) * 0.6)}px` }}>
                         AC-001
                       </p>
                     </div>
 
-                    {/* 3. Horizontal Line */}
-                    <div className="w-full h-[2px] bg-[#0A192F] mb-2 opacity-80" />
+                    {/* 3. Horizontal Line (Separator) */}
+                    <div className="w-full h-[2px] bg-[#0A192F] opacity-80" style={{ margin: '4% 0' }} />
 
-                    {/* 4. Logo at Bottom */}
+                    {/* 4. Logo Area (Bottom) */}
                     <div className="flex-1 w-full flex items-center justify-center min-h-0 overflow-hidden">
                       {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                        <img src={settings.logoUrl} alt="Logo" className="max-w-[80%] max-h-full object-contain" referrerPolicy="no-referrer" />
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 opacity-30">
                           <div className="w-8 h-8 border-2 border-[#0A192F] flex items-center justify-center rotate-45">
                             <span className="text-[8px] font-black -rotate-45">GH</span>
                           </div>
